@@ -1,10 +1,11 @@
 import axios from 'axios';
 
-// Derive API base from current host to support LAN access
-const API_HOST = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
-const API_PROTOCOL = typeof window !== 'undefined' ? window.location.protocol : 'http:';
-const API_PORT = 8000; // Django dev server default
-const API_BASE = `${API_PROTOCOL}//${API_HOST}:${API_PORT}`;
+// Prefer environment variable (Vercel) and fall back to same-host dev pattern
+const API_BASE =
+  process.env.REACT_APP_API_URL ||
+  (typeof window !== 'undefined'
+    ? `${window.location.protocol}//${window.location.hostname}:8000`
+    : 'http://localhost:8000');
 
 // Projects API
 export const getProjects = async () => {

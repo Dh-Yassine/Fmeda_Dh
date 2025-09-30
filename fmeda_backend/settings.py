@@ -1,5 +1,7 @@
 from pathlib import Path
+import os
 import secrets
+import dj_database_url
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -26,11 +28,17 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',     # ✅ Required
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
-CORS_ALLOW_ALL_ORIGINS = True
+_cors = os.getenv("CORS_ALLOWED_ORIGINS", "").split(",")
+_cors = [o.strip() for o in _cors if o.strip()]
+if _cors:
+    CORS_ALLOWED_ORIGINS = _cors
+else:
+    CORS_ALLOW_ALL_ORIGINS = True
 
 
-DEBUG = True
-ALLOWED_HOSTS = ["*"]
+DEBUG = os.getenv("DEBUG", "true").lower() == "true"
+_allowed = os.getenv("ALLOWED_HOSTS", "*").split(",")
+ALLOWED_HOSTS = [h.strip() for h in _allowed if h.strip()]
 
 # For local dev over LAN with session auth, optionally trust frontends
 CSRF_TRUSTED_ORIGINS = [
@@ -39,10 +47,10 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+    'default': dj_database_url.config(
+        default=f"sqlite:///{(BASE_DIR / 'db.sqlite3').as_posix()}",
+        conn_max_age=600,
+    )
 }
 
 ROOT_URLCONF = 'fmeda_backend.urls' 

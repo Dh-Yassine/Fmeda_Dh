@@ -228,7 +228,7 @@ class ProjectImportCSVView(APIView):
                 print(f"Creating SF: {row.to_dict()}")
                 sf = SafetyFunction.objects.create(
                     project=project,
-                    sf_id=str(int(row['id'])) if pd.notna(row['id']) else str(row['id']),
+                    sf_id=str(row['id']) if pd.notna(row['id']) else '',
                     description=row.get('description', ''),
                     target_integrity_level=row.get('target_integrity_level', '')
                 )
@@ -240,7 +240,7 @@ class ProjectImportCSVView(APIView):
                 print(f"Creating component: {row.to_dict()}")
                 
                 # Convert component ID to string and handle float values
-                comp_id = str(int(row['id'])) if pd.notna(row['id']) else str(row['id'])
+                comp_id = str(row['id']) if pd.notna(row['id']) else ''
                 
                 # Determine if component is safety related based on related_sf_ids or explicit field
                 is_safety_related = False
@@ -261,7 +261,7 @@ class ProjectImportCSVView(APIView):
             
             for _, row in df[df['section'] == 'fm'].iterrows():
                 print(f"Creating FM: {row.to_dict()}")
-                comp_id = str(int(row['component_id'])) if pd.notna(row['component_id']) else str(row['component_id'])
+                comp_id = str(row['component_id']) if pd.notna(row['component_id']) else ''
                 comp = comp_map.get(comp_id)
                 if comp:
                     fm = FailureMode.objects.create(
@@ -287,7 +287,7 @@ class ProjectImportCSVView(APIView):
             print(f"Available safety functions in sf_map: {list(sf_map.keys())}")
             
             for _, row in df[df['section'] == 'component'].iterrows():
-                comp_id = str(int(row['id'])) if pd.notna(row['id']) else str(row['id'])
+                comp_id = str(row['id']) if pd.notna(row['id']) else ''
                 comp = comp_map.get(comp_id)
                 if comp and pd.notna(row.get('related_sf_ids', '')) and str(row.get('related_sf_ids', '')).strip():
                     # Handle different possible formats of related_sf_ids

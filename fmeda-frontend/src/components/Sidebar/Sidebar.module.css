@@ -312,6 +312,16 @@
   background: linear-gradient(90deg, transparent, rgba(102, 126, 234, 0.6), transparent);
 }
 
+.logoImg {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(102, 126, 234, 0.15);
+  background: rgba(255,255,255,0.05);
+  display: block;
+}
+
 /* Responsive adjustments */
 @media (max-height: 600px) {
   .header {
