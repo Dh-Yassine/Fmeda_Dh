@@ -1,0 +1,20 @@
+# Python backend files
+fmeda_backend/
+venv/
+*.py
+__pycache__/
+*.pyc
+
+# Database
+db.sqlite3
+*.db
+
+# Logs
+*.log
+
+# Environment variables
+.env
+.env.local
+
+# Vercel internals
+.vercel

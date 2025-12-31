@@ -1,244 +1,679 @@
-import axios from 'axios';
+// localStorage-based FMEDA API - No backend required!
+// All data is stored in the browser's localStorage
 
-// Prefer environment variable (Vercel) and fall back to same-host dev pattern
-const API_BASE =
-  process.env.REACT_APP_API_URL ||
-  (typeof window !== 'undefined'
-    ? `${window.location.protocol}//${window.location.hostname}:8000`
-    : 'http://localhost:8000');
+// Storage keys
+const STORAGE_KEYS = {
+  PROJECTS: 'fmeda_projects',
+  SAFETY_FUNCTIONS: 'fmeda_safety_functions',
+  COMPONENTS: 'fmeda_components',
+  FAILURE_MODES: 'fmeda_failure_modes',
+  NEXT_ID: 'fmeda_next_id'
+};
 
-// Projects API
-export const getProjects = async () => {
+// Helper to generate unique IDs
+const getNextId = () => {
+  const currentId = parseInt(localStorage.getItem(STORAGE_KEYS.NEXT_ID) || '1');
+  localStorage.setItem(STORAGE_KEYS.NEXT_ID, String(currentId + 1));
+  return currentId;
+};
+
+// Helper to get/set data from localStorage
+const getStorageData = (key) => {
   try {
-    const response = await axios.get(`${API_BASE}/projects/`);
-    return response.data;
+    const data = localStorage.getItem(key);
+    return data ? JSON.parse(data) : [];
   } catch (error) {
-    console.error('Error fetching projects:', error);
+    console.error(`Error reading ${key} from localStorage:`, error);
+    return [];
+  }
+};
+
+const setStorageData = (key, data) => {
+  try {
+    localStorage.setItem(key, JSON.stringify(data));
+  } catch (error) {
+    console.error(`Error writing ${key} to localStorage:`, error);
     throw error;
   }
+};
+
+// ==================== Projects API ====================
+
+export const getProjects = async () => {
+  return getStorageData(STORAGE_KEYS.PROJECTS);
 };
 
 export const createProject = async (projectData) => {
-  try {
-    const response = await axios.post(`${API_BASE}/projects/`, projectData);
-    return response.data;
-  } catch (error) {
-    console.error('Error creating project:', error);
-    throw error;
-  }
+  const projects = getStorageData(STORAGE_KEYS.PROJECTS);
+  const newProject = {
+    id: getNextId(),
+    name: projectData.name || 'Untitled Project',
+    lifetime: projectData.lifetime || 8760,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  };
+  projects.push(newProject);
+  setStorageData(STORAGE_KEYS.PROJECTS, projects);
+  return newProject;
 };
 
 export const updateProject = async (projectId, projectData) => {
-  try {
-    const response = await axios.patch(`${API_BASE}/projects/${projectId}/`, projectData);
-    return response.data;
-  } catch (error) {
-    console.error('Error updating project:', error);
-    throw error;
+  const projects = getStorageData(STORAGE_KEYS.PROJECTS);
+  const index = projects.findIndex(p => p.id === parseInt(projectId));
+  if (index === -1) {
+    throw new Error('Project not found');
   }
+  projects[index] = {
+    ...projects[index],
+    ...projectData,
+    updated_at: new Date().toISOString()
+  };
+  setStorageData(STORAGE_KEYS.PROJECTS, projects);
+  return projects[index];
 };
 
 export const deleteProject = async (projectId) => {
-  try {
-    const response = await axios.delete(`${API_BASE}/projects/${projectId}/`);
-    return response.data;
-  } catch (error) {
-    console.error('Error deleting project:', error);
-    throw error;
-  }
+  const projects = getStorageData(STORAGE_KEYS.PROJECTS);
+  const filteredProjects = projects.filter(p => p.id !== parseInt(projectId));
+  setStorageData(STORAGE_KEYS.PROJECTS, filteredProjects);
+
+  // Also delete related safety functions, components, and failure modes
+  const safetyFunctions = getStorageData(STORAGE_KEYS.SAFETY_FUNCTIONS);
+  setStorageData(STORAGE_KEYS.SAFETY_FUNCTIONS, safetyFunctions.filter(sf => sf.project !== parseInt(projectId)));
+
+  const components = getStorageData(STORAGE_KEYS.COMPONENTS);
+  const compToDelete = components.filter(c => c.project === parseInt(projectId));
+  const compIds = compToDelete.map(c => c.id);
+  setStorageData(STORAGE_KEYS.COMPONENTS, components.filter(c => c.project !== parseInt(projectId)));
+
+  const failureModes = getStorageData(STORAGE_KEYS.FAILURE_MODES);
+  setStorageData(STORAGE_KEYS.FAILURE_MODES, failureModes.filter(fm => !compIds.includes(fm.component)));
+
+  return { message: 'Project deleted successfully' };
 };
 
-// Safety Functions API
+// ==================== Safety Functions API ====================
+
 export const getSafetyFunctions = async (projectId) => {
-  try {
-    const response = await axios.get(`${API_BASE}/safety-functions/?project=${projectId}`);
-    return response.data;
-  } catch (error) {
-    console.error('Error fetching safety functions:', error);
-    throw error;
-  }
+  const safetyFunctions = getStorageData(STORAGE_KEYS.SAFETY_FUNCTIONS);
+  const projectSFs = safetyFunctions.filter(sf => sf.project === parseInt(projectId));
+
+  // Map old fields to new fields if necessary
+  return projectSFs.map(sf => ({
+    ...sf,
+    sf_id: sf.sf_id || sf.name || 'SF_UNKNOWN',
+    target_integrity_level: sf.target_integrity_level || sf.asil_level || 'QM',
+    description: sf.description || ''
+  }));
 };
 
 export const createSafetyFunction = async (safetyFunctionData) => {
-  try {
-    const response = await axios.post(`${API_BASE}/safety-functions/`, safetyFunctionData);
-    return response.data;
-  } catch (error) {
-    console.error('Error creating safety function:', error);
-    throw error;
-  }
+  const safetyFunctions = getStorageData(STORAGE_KEYS.SAFETY_FUNCTIONS);
+  const newSF = {
+    id: getNextId(),
+    sf_id: safetyFunctionData.sf_id || safetyFunctionData.name || 'SF_NEW',
+    target_integrity_level: safetyFunctionData.target_integrity_level || safetyFunctionData.asil_level || 'QM',
+    description: safetyFunctionData.description || '',
+    project: parseInt(safetyFunctionData.project),
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  };
+  safetyFunctions.push(newSF);
+  setStorageData(STORAGE_KEYS.SAFETY_FUNCTIONS, safetyFunctions);
+  return newSF;
 };
 
 export const updateSafetyFunction = async (safetyFunctionId, safetyFunctionData) => {
-  try {
-    const response = await axios.patch(`${API_BASE}/safety-functions/${safetyFunctionId}/`, safetyFunctionData);
-    return response.data;
-  } catch (error) {
-    console.error('Error updating safety function:', error);
-    throw error;
+  const safetyFunctions = getStorageData(STORAGE_KEYS.SAFETY_FUNCTIONS);
+  const index = safetyFunctions.findIndex(sf => sf.id === parseInt(safetyFunctionId));
+  if (index === -1) {
+    throw new Error('Safety function not found');
   }
+  safetyFunctions[index] = {
+    ...safetyFunctions[index],
+    ...safetyFunctionData,
+    updated_at: new Date().toISOString()
+  };
+  setStorageData(STORAGE_KEYS.SAFETY_FUNCTIONS, safetyFunctions);
+  return safetyFunctions[index];
 };
 
 export const deleteSafetyFunction = async (safetyFunctionId) => {
-  try {
-    const response = await axios.delete(`${API_BASE}/safety-functions/${safetyFunctionId}/`);
-    return response.data;
-  } catch (error) {
-    console.error('Error deleting safety function:', error);
-    throw error;
-  }
+  const safetyFunctions = getStorageData(STORAGE_KEYS.SAFETY_FUNCTIONS);
+  setStorageData(STORAGE_KEYS.SAFETY_FUNCTIONS, safetyFunctions.filter(sf => sf.id !== parseInt(safetyFunctionId)));
+  return { message: 'Safety function deleted successfully' };
 };
 
-// Components API
+// ==================== Components API ====================
+
 export const getComponents = async (projectId) => {
-  try {
-    const response = await axios.get(`${API_BASE}/components/?project=${projectId}`);
-    return response.data;
-  } catch (error) {
-    console.error('Error fetching components:', error);
-    throw error;
-  }
+  const components = getStorageData(STORAGE_KEYS.COMPONENTS);
+  const projectComponents = components.filter(c => c.project === parseInt(projectId));
+
+  // Map old fields to new fields if necessary
+  return projectComponents.map(c => ({
+    ...c,
+    comp_id: c.comp_id || c.name || 'Untitled Component',
+    type: c.type || c.category || '',
+    failure_rate: c.failure_rate || c.fit_rate || 0,
+    is_safety_related: c.is_safety_related || false,
+    related_sfs: c.related_sfs || []
+  }));
 };
 
 export const createComponent = async (componentData) => {
-  try {
-    const response = await axios.post(`${API_BASE}/components/`, componentData);
-    return response.data;
-  } catch (error) {
-    console.error('Error creating component:', error);
-    throw error;
-  }
+  const components = getStorageData(STORAGE_KEYS.COMPONENTS);
+  const newComponent = {
+    id: getNextId(),
+    comp_id: componentData.comp_id || componentData.name || 'Untitled Component',
+    type: componentData.type || componentData.category || '',
+    failure_rate: componentData.failure_rate || componentData.fit_rate || 0,
+    is_safety_related: componentData.is_safety_related || false,
+    related_sfs: componentData.related_sfs || [],
+    project: parseInt(componentData.project),
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  };
+  components.push(newComponent);
+  setStorageData(STORAGE_KEYS.COMPONENTS, components);
+  return newComponent;
 };
 
 export const updateComponent = async (componentId, componentData) => {
-  try {
-    const response = await axios.patch(`${API_BASE}/components/${componentId}/`, componentData);
-    return response.data;
-  } catch (error) {
-    console.error('Error updating component:', error);
-    throw error;
+  const components = getStorageData(STORAGE_KEYS.COMPONENTS);
+  const index = components.findIndex(c => c.id === parseInt(componentId));
+  if (index === -1) {
+    throw new Error('Component not found');
   }
+  components[index] = {
+    ...components[index],
+    ...componentData,
+    updated_at: new Date().toISOString()
+  };
+  setStorageData(STORAGE_KEYS.COMPONENTS, components);
+  return components[index];
 };
 
 export const deleteComponent = async (componentId) => {
-  try {
-    const response = await axios.delete(`${API_BASE}/components/${componentId}/`);
-    return response.data;
-  } catch (error) {
-    console.error('Error deleting component:', error);
-    throw error;
-  }
+  const components = getStorageData(STORAGE_KEYS.COMPONENTS);
+  setStorageData(STORAGE_KEYS.COMPONENTS, components.filter(c => c.id !== parseInt(componentId)));
+
+  // Also delete related failure modes
+  const failureModes = getStorageData(STORAGE_KEYS.FAILURE_MODES);
+  setStorageData(STORAGE_KEYS.FAILURE_MODES, failureModes.filter(fm => fm.component !== parseInt(componentId)));
+
+  return { message: 'Component deleted successfully' };
 };
 
-// Failure Modes API
+// ==================== Failure Modes API ====================
+
 export const getFailureModes = async (componentId) => {
-  try {
-    const response = await axios.get(`${API_BASE}/failure-modes/by-component/${componentId}/`);
-    return response.data;
-  } catch (error) {
-    console.error('Error fetching failure modes:', error);
-    throw error;
-  }
+  const failureModes = getStorageData(STORAGE_KEYS.FAILURE_MODES);
+  const componentFMs = failureModes.filter(fm => fm.component === parseInt(componentId));
+
+  // Map old fields to new fields if necessary
+  return componentFMs.map(fm => ({
+    ...fm,
+    description: fm.description || fm.name || 'Untitled Failure Mode',
+    failure_rate_total: fm.failure_rate_total || fm.Failure_rate_total || fm.failure_rate_percentage || 0, // Fallbacks might be tricky but better than undefined
+    system_level_effect: fm.system_level_effect || fm.effect || '',
+    is_SPF: fm.is_SPF !== undefined ? fm.is_SPF : (fm.safe_fault === false), // Rough mapping
+    is_MPF: fm.is_MPF !== undefined ? fm.is_MPF : false
+  }));
 };
 
 export const createFailureMode = async (failureModeData) => {
-  try {
-    const response = await axios.post(`${API_BASE}/failure-modes/`, failureModeData);
-    return response.data;
-  } catch (error) {
-    console.error('Error creating failure mode:', error);
-    throw error;
-  }
+  const failureModes = getStorageData(STORAGE_KEYS.FAILURE_MODES);
+  const newFM = {
+    id: getNextId(),
+    description: failureModeData.description || failureModeData.name || 'Untitled Failure Mode',
+    component: parseInt(failureModeData.component),
+    system_level_effect: failureModeData.system_level_effect || '',
+    failure_rate_total: failureModeData.Failure_rate_total || failureModeData.failure_rate_total || 0,
+    is_SPF: failureModeData.is_SPF || false,
+    is_MPF: failureModeData.is_MPF || false,
+    SPF_safety_mechanism: failureModeData.SPF_safety_mechanism || '',
+    SPF_diagnostic_coverage: failureModeData.SPF_diagnostic_coverage || 0,
+    MPF_safety_mechanism: failureModeData.MPF_safety_mechanism || '',
+    MPF_diagnostic_coverage: failureModeData.MPF_diagnostic_coverage || 0,
+    // Keep these for backward compatibility if needed, or mapping
+    failure_rate_percentage: failureModeData.failure_rate_percentage || 0,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  };
+  failureModes.push(newFM);
+  setStorageData(STORAGE_KEYS.FAILURE_MODES, failureModes);
+  return newFM;
 };
 
 export const updateFailureMode = async (failureModeId, failureModeData) => {
-  try {
-    const response = await axios.patch(`${API_BASE}/failure-modes/${failureModeId}/`, failureModeData);
-    return response.data;
-  } catch (error) {
-    console.error('Error updating failure mode:', error);
-    throw error;
+  const failureModes = getStorageData(STORAGE_KEYS.FAILURE_MODES);
+  const index = failureModes.findIndex(fm => fm.id === parseInt(failureModeId));
+  if (index === -1) {
+    throw new Error('Failure mode not found');
   }
+  failureModes[index] = {
+    ...failureModes[index],
+    ...failureModeData,
+    updated_at: new Date().toISOString()
+  };
+  setStorageData(STORAGE_KEYS.FAILURE_MODES, failureModes);
+  return failureModes[index];
 };
 
 export const deleteFailureMode = async (failureModeId) => {
-  try {
-    const response = await axios.delete(`${API_BASE}/failure-modes/${failureModeId}/`);
-    return response.data;
-  } catch (error) {
-    console.error('Error deleting failure mode:', error);
-    throw error;
-  }
+  const failureModes = getStorageData(STORAGE_KEYS.FAILURE_MODES);
+  setStorageData(STORAGE_KEYS.FAILURE_MODES, failureModes.filter(fm => fm.id !== parseInt(failureModeId)));
+  return { message: 'Failure mode deleted successfully' };
 };
 
-// FMEDA Analysis API
+// ==================== FMEDA Analysis API ====================
+
 export const calculateFMEDA = async (projectId) => {
-  try {
-    const response = await axios.post(`${API_BASE}/fmeda/calculate/`, {
-      project: projectId
-    });
-    return response.data;
-  } catch (error) {
-    console.error('Error calculating FMEDA:', error);
-    throw error;
+  const project = getStorageData(STORAGE_KEYS.PROJECTS).find(p => p.id === parseInt(projectId));
+  if (!project) {
+    throw new Error('Project not found');
   }
+
+  const safetyFunctions = await getSafetyFunctions(projectId);
+  const components = await getComponents(projectId);
+  const lifetime = project.lifetime || 8760;
+
+  const results = [];
+
+  // Calculate metrics for each Safety Function
+  for (const sf of safetyFunctions) {
+    // Find components related to this SF
+    const sfComponents = components.filter(c => {
+      if (!c.related_sfs) return false;
+      // Handle potential string/number mismatches
+      return c.related_sfs.some(id => String(id) === String(sf.id));
+    });
+
+    // Get all failure modes for these components
+    let allFailureModes = [];
+    for (const component of sfComponents) {
+      const fms = await getFailureModes(component.id);
+      allFailureModes = allFailureModes.concat(fms.map(fm => ({
+        ...fm,
+        componentName: component.comp_id || component.name,
+        componentFitRate: component.failure_rate || component.fit_rate || 0,
+        componentQuantity: 1
+      })));
+    }
+
+    let totalFIT = 0;
+    let safeFIT = 0; // Lambda_safe
+    let singlePointFIT = 0; // Lambda_SPF (undetected)
+    let residualFIT = 0; // Lambda_RF (undetected portion of SPF safety mechanism)
+    let mpfDetectedFIT = 0; // Lambda_MPF_detected
+    let mpfLatentFIT = 0; // Lambda_MPF_latent (undetected)
+
+    // Auxiliary sums
+    let detectedFIT = 0; // Total detected (for simplified SPFM)
+
+    for (const fm of allFailureModes) {
+      // Use stored total FIT or calculate from percentage
+      let baseFIT = fm.failure_rate_total;
+      if (baseFIT === undefined || baseFIT === null) {
+        baseFIT = (fm.componentFitRate * (fm.failure_rate_percentage || 0) / 100);
+      }
+
+      totalFIT += baseFIT;
+
+      const isSafe = !fm.is_SPF && !fm.is_MPF;
+      if (isSafe || fm.safe_fault) {
+        safeFIT += baseFIT;
+      } else if (fm.is_SPF) {
+        // Single Point Fault
+        const coverage = fm.SPF_diagnostic_coverage || 0;
+        const detected = baseFIT * (coverage / 100);
+        const undetected = baseFIT * (1 - coverage / 100);
+
+        detectedFIT += detected;
+        // Undetected SPF constitutes Residual Fault or Single Point Fault?
+        // Usually:
+        // Lambda_SPF = faults with NO safety mechanism -> all undetected
+        // Lambda_RF = faults WITH safety mechanism but coverage < 100% -> undetected portion
+        if (fm.SPF_safety_mechanism && fm.SPF_safety_mechanism !== 'None' && fm.SPF_safety_mechanism !== '') {
+          residualFIT += undetected;
+        } else {
+          singlePointFIT += undetected;
+        }
+      } else if (fm.is_MPF) {
+        // Multiple Point Fault
+        const coverage = fm.MPF_diagnostic_coverage || 0;
+        const detected = baseFIT * (coverage / 100);
+        const latent = baseFIT * (1 - coverage / 100);
+
+        mpfDetectedFIT += detected;
+        mpfLatentFIT += latent;
+        detectedFIT += detected; // Contributing to detected sum
+      }
+    }
+
+    // SPFM = 1 - (Sum(Lambda_SPF) + Sum(Lambda_RF)) / Sum(Lambda_Safety_Related)
+    // Assuming all stored failure modes are safety related (based on component flag or just inclusion)
+    // If totalFIT is 0, avoid division by zero
+    const spfm = totalFIT > 0 ? (1 - ((singlePointFIT + residualFIT) / totalFIT)) * 100 : 0;
+
+    // LFM = 1 - Sum(Lambda_MPF_latent) / (Sum(Lambda_Total) - Sum(Lambda_Safe) - Sum(Lambda_SPF) - Sum(Lambda_RF))
+    const lfmDenom = totalFIT - safeFIT - singlePointFIT - residualFIT;
+    const lfm = lfmDenom > 0 ? (1 - (mpfLatentFIT / lfmDenom)) * 100 : 0;
+
+    // PMHF (Probabilistic Metric for Random Hardware Failures)
+    // Simplified: Sum(Lambda_SPF) + Sum(Lambda_RF) + Sum(Lambda_MPF_latent) (very simplified)
+    // Usually involves lifetime.
+    // Let's use the previous approximation: undetectedFIT * lifetime?
+    // undetectedFIT here roughly corresponds to singlePointFIT + residualFIT + mpfLatentFIT
+    const totalUndetected = singlePointFIT + residualFIT + mpfLatentFIT;
+    const pmhf = totalUndetected; // FITS (10^-9/hour)
+    // If we want probability over lifetime: pmhf * lifetime (if purely constant rate approximation)
+    // But typically PMHF is expressed in FITs (average probability per hour).
+    // Wait, ISO 26262 Part 5 calls it "Probabilistic Metric...", target is usually 10^-8/h (10 FIT).
+    // So summing the FITs of hazard-contributing faults is a standard approximation.
+
+    results.push({
+      safety_function: sf.id,
+      project_id: projectId,
+      spfm: spfm,
+      lfm: lfm,
+      mphf: pmhf, // In FITs
+      rf: residualFIT,
+      mpfl: mpfLatentFIT,
+      mpfd: mpfDetectedFIT,
+      safetyrelated: totalFIT
+    });
+  }
+
+  return results; // Return Array
 };
 
 export const getProjectResults = async (projectId) => {
-  try {
-    const response = await axios.get(`${API_BASE}/fmeda/results/${projectId}/`);
-    return response.data;
-  } catch (error) {
-    console.error('Error getting project results:', error);
-    throw error;
-  }
+  // Just re-calculate and return results
+  return await calculateFMEDA(projectId);
 };
 
-// CSV Import/Export API
+// ==================== CSV Import/Export API ====================
+
 export const importProject = async (formData) => {
-  try {
-    const response = await axios.post(`${API_BASE}/projects/import-csv/`, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
-    return response.data;
-  } catch (error) {
-    console.error('Error importing project:', error);
-    throw error;
+  const file = formData.get('file');
+  if (!file) {
+    throw new Error('No file provided');
   }
+
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const csvContent = e.target.result;
+        const rows = parseCSV(csvContent);
+
+        // 1. Process Project
+        const projectRow = rows.find(r => r.section === 'project');
+        if (!projectRow) {
+          // Fallback: try to find any row that looks like a project or create default
+          // logic same as before? No, let's complain if invalid format.
+          throw new Error('Invalid CVS format: No project section found');
+        }
+
+        const project = {
+          id: getNextId(),
+          name: projectRow.name || file.name.replace('.csv', ''),
+          lifetime: parseFloat(projectRow.lifetime) || 8760,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+
+        const projects = getStorageData(STORAGE_KEYS.PROJECTS);
+        projects.push(project);
+        setStorageData(STORAGE_KEYS.PROJECTS, projects);
+
+        // 2. Process Safety Functions
+        const safetyFunctions = getStorageData(STORAGE_KEYS.SAFETY_FUNCTIONS);
+        const sfMap = {}; // Maps external sf_id (string) to internal numeric ID
+
+        rows.filter(r => r.section === 'sf').forEach(row => {
+          const newSF = {
+            id: getNextId(),
+            sf_id: row.id || row.sf_id || `SF-${Math.random().toString(36).substr(2, 5).toUpperCase()}`,
+            description: row.description || '',
+            target_integrity_level: row.target_integrity_level || 'QM',
+            project: project.id,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          };
+          // Map keys
+          sfMap[newSF.sf_id] = newSF.id;
+          safetyFunctions.push(newSF);
+        });
+        setStorageData(STORAGE_KEYS.SAFETY_FUNCTIONS, safetyFunctions);
+
+        // 3. Process Components
+        const components = getStorageData(STORAGE_KEYS.COMPONENTS);
+        const compMap = {}; // Maps external comp_id (string) to internal numeric ID
+
+        rows.filter(r => r.section === 'component').forEach(row => {
+          // Parse related SF IDs
+          const relatedSfIdsRaw = row.related_sf_ids || '';
+          const relatedSfIds = relatedSfIdsRaw.split(',').map(s => s.trim()).filter(s => s);
+          const relatedInternalIds = relatedSfIds.map(sid => sfMap[sid]).filter(id => id !== undefined);
+
+          const isSafetyRelated = (String(row.is_safety_related).toLowerCase() === 'true') || relatedInternalIds.length > 0;
+
+          const newComp = {
+            id: getNextId(),
+            comp_id: row.id || row.comp_id || `COMP-${Math.random().toString(36).substr(2, 5).toUpperCase()}`,
+            type: row.type || '',
+            failure_rate: parseFloat(row.failure_rate) || 0,
+            is_safety_related: isSafetyRelated,
+            related_sfs: relatedInternalIds,
+            project: project.id,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          };
+          compMap[newComp.comp_id] = newComp.id;
+          components.push(newComp);
+        });
+        setStorageData(STORAGE_KEYS.COMPONENTS, components);
+
+        // 4. Process Failure Modes
+        const failureModes = getStorageData(STORAGE_KEYS.FAILURE_MODES);
+
+        rows.filter(r => r.section === 'fm').forEach(row => {
+          const compExternalId = row.component_id;
+          const compInternalId = compMap[compExternalId];
+
+          if (compInternalId) {
+            const newFM = {
+              id: getNextId(),
+              component: compInternalId,
+              description: row.description || 'Untitled Failure Mode',
+              failure_rate_total: parseFloat(row.Failure_rate_total) || 0,
+              system_level_effect: row.system_level_effect || '',
+              is_SPF: parseInt(row.is_SPF) === 1,
+              is_MPF: parseInt(row.is_MPF) === 1,
+              SPF_safety_mechanism: row.SPF_safety_mechanism || '',
+              SPF_diagnostic_coverage: parseFloat(row.SPF_diagnostic_coverage) || 0,
+              MPF_safety_mechanism: row.MPF_safety_mechanism || '',
+              MPF_diagnostic_coverage: parseFloat(row.MPF_diagnostic_coverage) || 0,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            };
+            failureModes.push(newFM);
+          }
+        });
+        setStorageData(STORAGE_KEYS.FAILURE_MODES, failureModes);
+
+        resolve(project);
+      } catch (error) {
+        console.error('Error parsing CSV:', error);
+        reject(new Error('Failed to parse CSV file: ' + error.message));
+      }
+    };
+    reader.onerror = () => reject(new Error('Failed to read file'));
+    reader.readAsText(file);
+  });
+};
+
+// Helper function to parse CSV content with headers
+const parseCSV = (csvContent) => {
+  const lines = csvContent.split(/\r?\n/).filter(line => line.trim());
+  if (lines.length === 0) return [];
+
+  // First line is header
+  const headers = parseCSVLine(lines[0]);
+
+  return lines.slice(1).map(line => {
+    const values = parseCSVLine(line);
+    const obj = {};
+    headers.forEach((h, i) => {
+      if (h && values[i] !== undefined) {
+        obj[h.trim()] = values[i];
+      }
+    });
+    return obj;
+  });
+};
+
+// Helper function to parse a CSV line (handles quoted values)
+const parseCSVLine = (line) => {
+  const values = [];
+  let current = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    if (char === '"') {
+      if (inQuotes && line[i + 1] === '"') {
+        // Double quote inside quotes means literal quote
+        current += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (char === ',' && !inQuotes) {
+      values.push(current.trim());
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  values.push(current.trim());
+  return values;
 };
 
 // Export project to CSV
 export const exportProject = async (project) => {
-  try {
-    const response = await axios.get(`${API_BASE}/projects/${project.id}/export-csv/`, {
-      responseType: 'blob'
-    });
-    // Create and download the file
-    const blob = new Blob([response.data], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    // Use project.name if available, fallback to id
-    const safeName = (project.name || `project_${project.id}`).replace(/[^a-zA-Z0-9_-]/g, '_');
-    a.href = url;
-    a.download = `${safeName}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    window.URL.revokeObjectURL(url);
-    document.body.removeChild(a);
-    return response.data;
-  } catch (error) {
-    throw error;
+  const safetyFunctions = await getSafetyFunctions(project.id);
+  const components = await getComponents(project.id);
+  // Calculate results to export metrics
+  const results = await calculateFMEDA(project.id);
+
+  const columns = [
+    'section', 'name', 'lifetime', // Project
+    'id', 'description', 'target_integrity_level', 'RF', 'MPFL', 'MPFD', 'MPHF', 'SPFM', 'LFM', 'safetyrelated', // SF + shared
+    'type', 'failure_rate', 'related_sf_ids', 'is_safety_related', // Component
+    'component_id', 'Failure_rate_total', 'system_level_effect', 'is_SPF', 'SPF_safety_mechanism', 'SPF_diagnostic_coverage', 'is_MPF', 'MPF_safety_mechanism', 'MPF_diagnostic_coverage' // FM
+  ];
+
+  let csv = columns.join(',') + '\n';
+
+  const escape = (val) => {
+    if (val === null || val === undefined) return '';
+    const str = String(val);
+    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+      return `"${str.replace(/"/g, '""')}"`;
+    }
+    return str;
+  };
+
+  // 1. Project Row
+  csv += columns.map(col => {
+    if (col === 'section') return 'project';
+    if (col === 'name') return escape(project.name);
+    if (col === 'lifetime') return escape(project.lifetime);
+    return '';
+  }).join(',') + '\n';
+
+  // 2. Safety Functions
+  for (const sf of safetyFunctions) {
+    const res = results.find(r => r.safety_function === sf.id) || {};
+    csv += columns.map(col => {
+      if (col === 'section') return 'sf';
+      if (col === 'id') return escape(sf.sf_id);
+      if (col === 'description') return escape(sf.description);
+      if (col === 'target_integrity_level') return escape(sf.target_integrity_level);
+      // Metrics
+      if (col === 'SPFM') return escape(res.spfm);
+      if (col === 'LFM') return escape(res.lfm);
+      if (col === 'MPHF') return escape(res.mphf);
+      if (col === 'RF') return escape(res.rf);
+      if (col === 'MPFL') return escape(res.mpfl);
+      if (col === 'MPFD') return escape(res.mpfd);
+      if (col === 'safetyrelated') return escape(res.safetyrelated);
+      return '';
+    }).join(',') + '\n';
   }
+
+  // 3. Components
+  for (const comp of components) {
+    const linkedSfs = safetyFunctions.filter(sf => comp.related_sfs && comp.related_sfs.includes(sf.id));
+    const relatedIdsStr = linkedSfs.map(sf => sf.sf_id).join(',');
+
+    csv += columns.map(col => {
+      if (col === 'section') return 'component';
+      if (col === 'id') return escape(comp.comp_id);
+      if (col === 'type') return escape(comp.type);
+      if (col === 'failure_rate') return escape(comp.failure_rate);
+      if (col === 'is_safety_related') return escape(comp.is_safety_related);
+      if (col === 'related_sf_ids') return escape(relatedIdsStr);
+      return '';
+    }).join(',') + '\n';
+  }
+
+  // 4. Failure Modes
+  for (const comp of components) {
+    const fms = await getFailureModes(comp.id);
+    for (const fm of fms) {
+      csv += columns.map(col => {
+        if (col === 'section') return 'fm';
+        if (col === 'component_id') return escape(comp.comp_id);
+        if (col === 'description') return escape(fm.description);
+        if (col === 'Failure_rate_total') return escape(fm.failure_rate_total);
+        if (col === 'system_level_effect') return escape(fm.system_level_effect);
+        if (col === 'is_SPF') return fm.is_SPF ? '1' : '0';
+        if (col === 'SPF_safety_mechanism') return escape(fm.SPF_safety_mechanism);
+        if (col === 'SPF_diagnostic_coverage') return escape(fm.SPF_diagnostic_coverage);
+        if (col === 'is_MPF') return fm.is_MPF ? '1' : '0';
+        if (col === 'MPF_safety_mechanism') return escape(fm.MPF_safety_mechanism);
+        if (col === 'MPF_diagnostic_coverage') return escape(fm.MPF_diagnostic_coverage);
+        return '';
+      }).join(',') + '\n';
+    }
+  }
+
+  // Download
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const safeName = (project.name || `project_${project.id}`).replace(/[^a-zA-Z0-9_-]/g, '_');
+  a.href = url;
+  a.download = `${safeName}_fmeda.csv`;
+  document.body.appendChild(a);
+  a.click();
+  window.URL.revokeObjectURL(url);
+  document.body.removeChild(a);
+
+  return csv;
 };
 
 // Clear all data
 export const clearAllData = async () => {
-  try {
-    const response = await axios.get(`${API_BASE}/projects/clear-all/`);
-    return response.data;
-  } catch (error) {
-    throw error;
-  }
+  localStorage.removeItem(STORAGE_KEYS.PROJECTS);
+  localStorage.removeItem(STORAGE_KEYS.SAFETY_FUNCTIONS);
+  localStorage.removeItem(STORAGE_KEYS.COMPONENTS);
+  localStorage.removeItem(STORAGE_KEYS.FAILURE_MODES);
+  localStorage.removeItem(STORAGE_KEYS.NEXT_ID);
+  return { message: 'All data cleared successfully' };
 };

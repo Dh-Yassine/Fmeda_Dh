@@ -28,22 +28,13 @@ export default function Home({ currentProject, setCurrentProject, clearProjectDa
     setError("");
 
     try {
-      // First, clear all existing data automatically
-      console.log("Automatically clearing all existing data...");
-      try {
-        await clearAllData();
-        console.log("All data cleared successfully");
-      } catch (clearError) {
-        console.log("Failed to clear data, but continuing...", clearError);
-      }
-      
-      // Clear any existing project data
+      // Clear any existing project data in the UI state
       clearProjectData();
-      
+
       const project = await createProject({ name: newProjectName.trim() });
       setCurrentProject(project);
       setNewProjectName("");
-      
+
       // Navigate to assumptions page without page refresh
       navigate("/assumptions");
     } catch (error) {
@@ -61,7 +52,7 @@ export default function Home({ currentProject, setCurrentProject, clearProjectDa
     fileInput.type = 'file';
     fileInput.accept = '.csv';
     fileInput.style.display = 'none';
-    
+
     fileInput.onchange = async (event) => {
       const file = event.target.files[0];
       if (!file) return;
@@ -72,10 +63,10 @@ export default function Home({ currentProject, setCurrentProject, clearProjectDa
       try {
         const formData = new FormData();
         formData.append('file', file);
-        
+
         const project = await importProject(formData);
         setCurrentProject(project);
-        
+
         // Navigate to assumptions page without page refresh
         navigate("/assumptions");
       } catch (error) {
@@ -135,7 +126,7 @@ export default function Home({ currentProject, setCurrentProject, clearProjectDa
   return (
     <div className={styles.container}>
       <div className={styles.backdrop}></div>
-      
+
       {currentProject ? (
         <div className={styles.currentProject}>
           <div className={styles.projectHeader}>
@@ -151,7 +142,7 @@ export default function Home({ currentProject, setCurrentProject, clearProjectDa
           </div>
 
           <div className={styles.projectActions}>
-            <RippleButton 
+            <RippleButton
               className={styles.actionBtn}
               onClick={handleExportProject}
               disabled={isExporting}
@@ -163,16 +154,16 @@ export default function Home({ currentProject, setCurrentProject, clearProjectDa
                 {isExporting ? "Exporting..." : "Export Project"}
               </span>
             </RippleButton>
-            
-            <RippleButton 
+
+            <RippleButton
               className={styles.actionBtn}
               onClick={handleHelp}
             >
               <span className={styles.btnIcon}>❓</span>
               <span>Help</span>
             </RippleButton>
-            
-            <RippleButton 
+
+            <RippleButton
               className={styles.clearBtn}
               onClick={handleClearAllData}
             >
@@ -187,7 +178,7 @@ export default function Home({ currentProject, setCurrentProject, clearProjectDa
               <div className={styles.step}>
                 <span className={styles.stepNumber}>1</span>
                 <span className={styles.stepText}>Set System Lifetime</span>
-                <RippleButton 
+                <RippleButton
                   className={styles.stepBtn}
                   onClick={() => navigate("/assumptions")}
                 >
@@ -197,7 +188,7 @@ export default function Home({ currentProject, setCurrentProject, clearProjectDa
               <div className={styles.step}>
                 <span className={styles.stepNumber}>2</span>
                 <span className={styles.stepText}>Define Safety Functions</span>
-                <RippleButton 
+                <RippleButton
                   className={styles.stepBtn}
                   onClick={() => navigate("/safety-functions")}
                 >
@@ -207,7 +198,7 @@ export default function Home({ currentProject, setCurrentProject, clearProjectDa
               <div className={styles.step}>
                 <span className={styles.stepNumber}>3</span>
                 <span className={styles.stepText}>Add Components</span>
-                <RippleButton 
+                <RippleButton
                   className={styles.stepBtn}
                   onClick={() => navigate("/components")}
                 >
@@ -217,7 +208,7 @@ export default function Home({ currentProject, setCurrentProject, clearProjectDa
               <div className={styles.step}>
                 <span className={styles.stepNumber}>4</span>
                 <span className={styles.stepText}>Define Failure Modes</span>
-                <RippleButton 
+                <RippleButton
                   className={styles.stepBtn}
                   onClick={() => navigate("/failure-modes")}
                 >
@@ -227,7 +218,7 @@ export default function Home({ currentProject, setCurrentProject, clearProjectDa
               <div className={styles.step}>
                 <span className={styles.stepNumber}>5</span>
                 <span className={styles.stepText}>Run FMEDA Analysis</span>
-                <RippleButton 
+                <RippleButton
                   className={styles.stepBtn}
                   onClick={() => navigate("/fmeda-analysis")}
                 >
@@ -250,7 +241,7 @@ export default function Home({ currentProject, setCurrentProject, clearProjectDa
               <div className={styles.cardIcon}>🆕</div>
               <h3>New Project</h3>
               <p>Start a fresh FMEDA analysis project</p>
-              
+
               <div className={styles.projectForm}>
                 <input
                   type="text"
@@ -260,7 +251,7 @@ export default function Home({ currentProject, setCurrentProject, clearProjectDa
                   className={styles.projectInput}
                   onKeyPress={(e) => e.key === 'Enter' && handleNewProject()}
                 />
-                <RippleButton 
+                <RippleButton
                   className={styles.createBtn}
                   onClick={handleNewProject}
                   disabled={isCreating}
@@ -279,7 +270,7 @@ export default function Home({ currentProject, setCurrentProject, clearProjectDa
               <div className={styles.cardIcon}>📁</div>
               <h3>Load Project</h3>
               <p>Import an existing project from CSV file</p>
-              <RippleButton 
+              <RippleButton
                 className={styles.loadBtn}
                 onClick={handleLoadProject}
                 disabled={isImporting}
