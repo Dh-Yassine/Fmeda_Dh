@@ -252,9 +252,24 @@ export const updateFailureMode = async (failureModeId, failureModeData) => {
   if (index === -1) {
     throw new Error('Failure mode not found');
   }
+
+  // Prepare update data
+  const updatePayload = { ...failureModeData };
+
+  // Fix 1: Ensure component is stored as an integer (fixes "Disappearing" bug)
+  if (updatePayload.component) {
+    updatePayload.component = parseInt(updatePayload.component);
+  }
+
+  // Fix 2: Handle key mismatch (fixes "FIT rate not updating" bug)
+  // The frontend might send 'Failure_rate_total', but we store 'failure_rate_total'
+  if (updatePayload.Failure_rate_total !== undefined) {
+    updatePayload.failure_rate_total = updatePayload.Failure_rate_total;
+  }
+
   failureModes[index] = {
     ...failureModes[index],
-    ...failureModeData,
+    ...updatePayload,
     updated_at: new Date().toISOString()
   };
   setStorageData(STORAGE_KEYS.FAILURE_MODES, failureModes);
