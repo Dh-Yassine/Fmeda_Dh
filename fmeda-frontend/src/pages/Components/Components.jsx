@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { 
-  getComponents, 
-  createComponent, 
-  updateComponent, 
+import {
+  getComponents,
+  createComponent,
+  updateComponent,
   deleteComponent,
   getSafetyFunctions,
   createFailureMode
@@ -49,52 +49,52 @@ const COMPONENT_TYPE_SUGGESTIONS = [
 // Predefined failure modes based on component type (from fmeda_gui.py)
 const PREDEFINED_FAILURE_MODES = {
   "Resistor": [
-    {"description": "Open circuit", "fit_rate": 10.0, "system_effect": "Loss of function"},
-    {"description": "Short circuit", "fit_rate": 5.0, "system_effect": "Overcurrent/overheating"}
+    { "description": "Open circuit", "fit_rate": 10.0, "system_effect": "Loss of function" },
+    { "description": "Short circuit", "fit_rate": 5.0, "system_effect": "Overcurrent/overheating" }
   ],
   "Capacitor": [
-    {"description": "Open circuit", "fit_rate": 15.0, "system_effect": "Loss of filtering/decoupling"},
-    {"description": "Short circuit", "fit_rate": 8.0, "system_effect": "Overcurrent/overheating"}
+    { "description": "Open circuit", "fit_rate": 15.0, "system_effect": "Loss of filtering/decoupling" },
+    { "description": "Short circuit", "fit_rate": 8.0, "system_effect": "Overcurrent/overheating" }
   ],
   "Inductor": [
-    {"description": "Open circuit", "fit_rate": 12.0, "system_effect": "Loss of filtering"},
-    {"description": "Short circuit", "fit_rate": 6.0, "system_effect": "Overcurrent/overheating"}
+    { "description": "Open circuit", "fit_rate": 12.0, "system_effect": "Loss of filtering" },
+    { "description": "Short circuit", "fit_rate": 6.0, "system_effect": "Overcurrent/overheating" }
   ],
   "Diodes": [
-    {"description": "Open circuit", "fit_rate": 20.0, "system_effect": "Loss of rectification/protection"},
-    {"description": "Short circuit", "fit_rate": 10.0, "system_effect": "Overcurrent/overheating"}
+    { "description": "Open circuit", "fit_rate": 20.0, "system_effect": "Loss of rectification/protection" },
+    { "description": "Short circuit", "fit_rate": 10.0, "system_effect": "Overcurrent/overheating" }
   ],
   "Transistor/transistor like": [
-    {"description": "Pin open circuit", "fit_rate": 25.0, "system_effect": "Loss of switching/amplification"},
-    {"description": "Pin to pin short circuit", "fit_rate": 15.0, "system_effect": "Malfunction"},
-    {"description": "Pin to GND short circuit", "fit_rate": 12.0, "system_effect": "Loss of function"},
-    {"description": "Pin to VCC short circuit", "fit_rate": 12.0, "system_effect": "Overcurrent/overheating"}
+    { "description": "Pin open circuit", "fit_rate": 25.0, "system_effect": "Loss of switching/amplification" },
+    { "description": "Pin to pin short circuit", "fit_rate": 15.0, "system_effect": "Malfunction" },
+    { "description": "Pin to GND short circuit", "fit_rate": 12.0, "system_effect": "Loss of function" },
+    { "description": "Pin to VCC short circuit", "fit_rate": 12.0, "system_effect": "Overcurrent/overheating" }
   ],
   "IC": [
-    {"description": "Pin open circuit", "fit_rate": 30.0, "system_effect": "Loss of function"},
-    {"description": "Pin to pin short circuit", "fit_rate": 20.0, "system_effect": "Malfunction"},
-    {"description": "Pin to GND short circuit", "fit_rate": 15.0, "system_effect": "Loss of function"},
-    {"description": "Pin to VCC short circuit", "fit_rate": 15.0, "system_effect": "Overcurrent/overheating"}
+    { "description": "Pin open circuit", "fit_rate": 30.0, "system_effect": "Loss of function" },
+    { "description": "Pin to pin short circuit", "fit_rate": 20.0, "system_effect": "Malfunction" },
+    { "description": "Pin to GND short circuit", "fit_rate": 15.0, "system_effect": "Loss of function" },
+    { "description": "Pin to VCC short circuit", "fit_rate": 15.0, "system_effect": "Overcurrent/overheating" }
   ],
   "Relays, contactors": [
-    {"description": "Stuck close", "fit_rate": 35.0, "system_effect": "Continuous operation"},
-    {"description": "Stuck open", "fit_rate": 35.0, "system_effect": "Loss of switching"}
+    { "description": "Stuck close", "fit_rate": 35.0, "system_effect": "Continuous operation" },
+    { "description": "Stuck open", "fit_rate": 35.0, "system_effect": "Loss of switching" }
   ],
   "Transformer": [
-    {"description": "Pin open circuit", "fit_rate": 18.0, "system_effect": "Loss of isolation/transformation"},
-    {"description": "Pin to pin short circuit", "fit_rate": 12.0, "system_effect": "Malfunction"},
-    {"description": "Pin to GND short circuit", "fit_rate": 10.0, "system_effect": "Loss of isolation"},
-    {"description": "Pin to VCC short circuit", "fit_rate": 10.0, "system_effect": "Overcurrent/overheating"}
+    { "description": "Pin open circuit", "fit_rate": 18.0, "system_effect": "Loss of isolation/transformation" },
+    { "description": "Pin to pin short circuit", "fit_rate": 12.0, "system_effect": "Malfunction" },
+    { "description": "Pin to GND short circuit", "fit_rate": 10.0, "system_effect": "Loss of isolation" },
+    { "description": "Pin to VCC short circuit", "fit_rate": 10.0, "system_effect": "Overcurrent/overheating" }
   ],
   "Thermistor": [
-    {"description": "Open circuit", "fit_rate": 22.0, "system_effect": "Loss of temperature sensing"},
-    {"description": "Short circuit", "fit_rate": 11.0, "system_effect": "False temperature reading"},
-    {"description": "Resistance drift", "fit_rate": 8.0, "system_effect": "Inaccurate temperature reading"}
+    { "description": "Open circuit", "fit_rate": 22.0, "system_effect": "Loss of temperature sensing" },
+    { "description": "Short circuit", "fit_rate": 11.0, "system_effect": "False temperature reading" },
+    { "description": "Resistance drift", "fit_rate": 8.0, "system_effect": "Inaccurate temperature reading" }
   ],
   "Crystals": [
-    {"description": "Open circuit", "fit_rate": 28.0, "system_effect": "Loss of clock signal"},
-    {"description": "Short circuit", "fit_rate": 14.0, "system_effect": "Clock malfunction"},
-    {"description": "Frequency drift", "fit_rate": 10.0, "system_effect": "Inaccurate timing"}
+    { "description": "Open circuit", "fit_rate": 28.0, "system_effect": "Loss of clock signal" },
+    { "description": "Short circuit", "fit_rate": 14.0, "system_effect": "Clock malfunction" },
+    { "description": "Frequency drift", "fit_rate": 10.0, "system_effect": "Inaccurate timing" }
   ]
 };
 
@@ -136,7 +136,7 @@ const CustomSelect = ({ value, onChange, options, placeholder, className }) => {
           readOnly={!isOpen}
         />
         <span className={styles.selectArrow}>▼</span>
-        
+
         {isOpen && (
           <div className={styles.selectDropdown}>
             {filteredOptions.map((option) => (
@@ -219,7 +219,7 @@ export default function Components({ currentProject }) {
 
   const loadComponents = async () => {
     if (!currentProject) return;
-    
+
     try {
       const data = await getComponents(currentProject.id);
       setComponents(data);
@@ -232,7 +232,7 @@ export default function Components({ currentProject }) {
 
   const loadSafetyFunctions = async () => {
     if (!currentProject) return;
-    
+
     try {
       const data = await getSafetyFunctions(currentProject.id);
       setSafetyFunctions(data);
@@ -247,7 +247,7 @@ export default function Components({ currentProject }) {
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
-    
+
     // Clear selected failure modes when type or failure rate changes
     if (name === 'type' || name === 'failure_rate') {
       setSelectedFailureModes([]);
@@ -280,7 +280,7 @@ export default function Components({ currentProject }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!currentProject) {
       setError("No project selected. Please create or load a project first.");
       showToast("error", "No project selected. Please create or load a project first.");
@@ -303,7 +303,7 @@ export default function Components({ currentProject }) {
     setIsLoading(true);
     setError("");
     setSuccess(""); // Clear previous success messages
-    
+
     try {
       const payload = {
         comp_id: form.comp_id.trim(),
@@ -325,12 +325,12 @@ export default function Components({ currentProject }) {
         console.log("Creating component with payload:", payload);
         result = await createComponent(payload);
         console.log("Component created successfully");
-        
+
         // Auto-populate failure modes only for new components
         if (selectedFailureModes.length > 0) {
           try {
             console.log(`Auto-populating ${selectedFailureModes.length} failure modes for component ${result.id}`);
-            
+
             for (const fmIndex of selectedFailureModes) {
               const fmData = predefinedFMs[fmIndex];
               const actualFitRate = failureRate * (fmData.fit_rate / 100);
@@ -346,12 +346,12 @@ export default function Components({ currentProject }) {
                 MPF_diagnostic_coverage: 0,
                 component: result.id
               };
-              
+
               console.log(`Creating failure mode with payload:`, failureModePayload);
               await createFailureMode(failureModePayload);
               console.log(`Successfully created failure mode: ${fmData.description}`);
             }
-            
+
             console.log(`Successfully auto-populated ${selectedFailureModes.length} failure modes`);
           } catch (error) {
             console.error("Error auto-populating failure modes:", error);
@@ -362,7 +362,7 @@ export default function Components({ currentProject }) {
           }
         }
       }
-      
+
       setForm({
         comp_id: "",
         type: "",
@@ -373,17 +373,17 @@ export default function Components({ currentProject }) {
       setEditingId(null);
       setSelectedFailureModes([]);
       await loadComponents();
-      
+
       // Show success message
-      const successMsg = editingId 
+      const successMsg = editingId
         ? `✅ Component '${form.comp_id}' updated successfully!`
-        : (selectedFailureModes.length > 0 
+        : (selectedFailureModes.length > 0
           ? `✅ Component '${form.comp_id}' created successfully with ${selectedFailureModes.length} auto-populated failure modes!`
           : `✅ Component '${form.comp_id}' created successfully!`);
       setSuccess(successMsg);
       showToast("success", successMsg);
       setTimeout(() => setSuccess(""), 5000);
-      
+
     } catch (err) {
       console.error(`Error ${editingId ? 'updating' : 'creating'} component:`, err);
       setError(`Failed to ${editingId ? 'update' : 'add'} component. Check your input and try again.`);
@@ -409,7 +409,7 @@ export default function Components({ currentProject }) {
       type: component.type,
       failure_rate: component.failure_rate.toString(),
       is_safety_related: component.is_safety_related,
-      related_sfs: component.related_sfs ? component.related_sfs.map(sf => sf.id) : [],
+      related_sfs: component.related_sfs ? [...component.related_sfs] : [],
     });
     setEditingId(component.id);
     setSelectedFailureModes([]); // Clear autopopulate selection when editing
@@ -438,8 +438,8 @@ export default function Components({ currentProject }) {
       <div className={styles.noProject}>
         <h2>No Project Selected</h2>
         <p>Please create or load a project first to manage Components.</p>
-        <button 
-          className={styles.backBtn} 
+        <button
+          className={styles.backBtn}
           onClick={() => navigate("/")}
         >
           ← Back to Home
@@ -451,7 +451,7 @@ export default function Components({ currentProject }) {
   return (
     <div className={styles.container}>
       <div className={styles.backdrop}></div>
-      
+
       <div className={styles.header}>
         <h2>Components Management</h2>
         <p className={styles.projectInfo}>
@@ -523,23 +523,23 @@ export default function Components({ currentProject }) {
               <h3 className={styles.autopopulateTitle}>Auto-Populate Failure Modes</h3>
             </div>
             <p className={styles.autopopulateDescription}>
-              Based on your selected component type <strong>{form.type}</strong> and failure rate <strong>{form.failure_rate} FIT</strong>, 
+              Based on your selected component type <strong>{form.type}</strong> and failure rate <strong>{form.failure_rate} FIT</strong>,
               select which predefined failure modes you want to create automatically:
             </p>
-            
+
             <div className={styles.autopopulatePreview}>
               <div className={styles.autopopulatePreviewTitle}>
                 <span className={styles.autopopulatePreviewIcon}>📋</span>
                 Select Failure Modes to Auto-Create
                 <div className={styles.autopopulateActions}>
-                  <button 
+                  <button
                     type="button"
                     className={styles.autopopulateActionBtn}
                     onClick={handleSelectAllFailureModes}
                   >
                     Select All
                   </button>
-                  <button 
+                  <button
                     type="button"
                     className={styles.autopopulateActionBtn}
                     onClick={handleClearAllFailureModes}
@@ -553,8 +553,8 @@ export default function Components({ currentProject }) {
                   const actualFitRate = parseFloat(form.failure_rate) * (fm.fit_rate / 100);
                   const isSelected = selectedFailureModes.includes(index);
                   return (
-                    <div 
-                      key={index} 
+                    <div
+                      key={index}
                       className={`${styles.autopopulateItem} ${isSelected ? styles.selected : ''}`}
                       onClick={() => handleFailureModeToggle(index)}
                     >
@@ -594,15 +594,15 @@ export default function Components({ currentProject }) {
               <div className={styles.sfHeader}>
                 <span>Select which safety functions this component supports:</span>
                 <div className={styles.sfActions}>
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     className={styles.sfActionBtn}
                     onClick={handleSelectAllSFs}
                   >
                     Select All
                   </button>
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     className={styles.sfActionBtn}
                     onClick={handleClearAllSFs}
                   >
@@ -658,8 +658,8 @@ export default function Components({ currentProject }) {
         </div>
 
         <div className={styles.formActions}>
-          <RippleButton 
-            className={styles.saveBtn} 
+          <RippleButton
+            className={styles.saveBtn}
             type="submit"
             disabled={isLoading}
           >
@@ -670,7 +670,7 @@ export default function Components({ currentProject }) {
               {isLoading ? "Adding..." : (editingId ? "Update Component" : "Add Component")}
             </span>
           </RippleButton>
-          
+
           {editingId && (
             <RippleButton
               type="button"
@@ -700,8 +700,8 @@ export default function Components({ currentProject }) {
         <div className={styles.tableHeader}>
           <h3>Components ({components.length})</h3>
           {components.length > 0 && (
-            <RippleButton 
-              className={styles.continueBtn} 
+            <RippleButton
+              className={styles.continueBtn}
               onClick={handleContinue}
             >
               <span className={styles.btnIcon}>🚀</span>
@@ -741,7 +741,10 @@ export default function Components({ currentProject }) {
                   </td>
                   <td className={styles.relatedSfs}>
                     {comp.related_sfs && comp.related_sfs.length > 0
-                      ? comp.related_sfs.map(sf => sf.sf_id).join(", ")
+                      ? comp.related_sfs.map(sfId => {
+                        const sf = safetyFunctions.find(s => s.id === sfId);
+                        return sf ? sf.sf_id : null;
+                      }).filter(Boolean).join(", ")
                       : "-"}
                   </td>
                   <td className={styles.actions}>
@@ -753,8 +756,8 @@ export default function Components({ currentProject }) {
                       <span className={styles.btnIcon}>🗑️</span>
                       <span>Remove</span>
                     </RippleButton>
-                    <RippleButton 
-                      className={styles.fmBtn} 
+                    <RippleButton
+                      className={styles.fmBtn}
                       title="Component Failure Modes"
                       onClick={() => handleFailureModes(comp.id)}
                     >
