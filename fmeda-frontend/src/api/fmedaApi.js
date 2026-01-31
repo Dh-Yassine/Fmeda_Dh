@@ -185,11 +185,20 @@ export const updateComponent = async (componentId, componentData) => {
   if (index === -1) {
     throw new Error('Component not found');
   }
-  components[index] = {
+  
+  // Ensure proper data types
+  const updatedComponent = {
     ...components[index],
-    ...componentData,
+    comp_id: componentData.comp_id !== undefined ? componentData.comp_id : components[index].comp_id,
+    type: componentData.type !== undefined ? componentData.type : components[index].type,
+    failure_rate: componentData.failure_rate !== undefined ? parseFloat(componentData.failure_rate) : components[index].failure_rate,
+    is_safety_related: componentData.is_safety_related !== undefined ? componentData.is_safety_related : components[index].is_safety_related,
+    related_sfs: componentData.related_sfs !== undefined ? componentData.related_sfs.map(id => parseInt(id)) : components[index].related_sfs,
+    project: components[index].project, // Preserve project ID
     updated_at: new Date().toISOString()
   };
+  
+  components[index] = updatedComponent;
   setStorageData(STORAGE_KEYS.COMPONENTS, components);
   return components[index];
 };
@@ -209,34 +218,48 @@ export const deleteComponent = async (componentId) => {
 
 export const getFailureModes = async (componentId) => {
   const failureModes = getStorageData(STORAGE_KEYS.FAILURE_MODES);
-  const componentFMs = failureModes.filter(fm => fm.component === parseInt(componentId));
+  const compIdNum = parseInt(componentId);
+  
+  // Filter by component ID, ensuring both are compared as numbers
+  const componentFMs = failureModes.filter(fm => {
+    const fmComponent = typeof fm.component === 'string' ? parseInt(fm.component) : fm.component;
+    return fmComponent === compIdNum;
+  });
 
   // Map old fields to new fields if necessary
   return componentFMs.map(fm => ({
     ...fm,
     description: fm.description || fm.name || 'Untitled Failure Mode',
-    failure_rate_total: fm.failure_rate_total || fm.Failure_rate_total || fm.failure_rate_percentage || 0, // Fallbacks might be tricky but better than undefined
+    failure_rate_total: fm.failure_rate_total || fm.Failure_rate_total || fm.failure_rate_percentage || 0,
+    Failure_rate_total: fm.Failure_rate_total || fm.failure_rate_total || fm.failure_rate_percentage || 0, // Return both for compatibility
     system_level_effect: fm.system_level_effect || fm.effect || '',
-    is_SPF: fm.is_SPF !== undefined ? fm.is_SPF : (fm.safe_fault === false), // Rough mapping
-    is_MPF: fm.is_MPF !== undefined ? fm.is_MPF : false
+    is_SPF: fm.is_SPF !== undefined ? fm.is_SPF : (fm.safe_fault === false),
+    is_MPF: fm.is_MPF !== undefined ? fm.is_MPF : false,
+    component: typeof fm.component === 'string' ? parseInt(fm.component) : fm.component // Ensure number
   }));
 };
 
 export const createFailureMode = async (failureModeData) => {
   const failureModes = getStorageData(STORAGE_KEYS.FAILURE_MODES);
+  
+  // Handle both Failure_rate_total and failure_rate_total
+  const failureRate = failureModeData.Failure_rate_total !== undefined 
+    ? parseFloat(failureModeData.Failure_rate_total) 
+    : (failureModeData.failure_rate_total !== undefined ? parseFloat(failureModeData.failure_rate_total) : 0);
+  
   const newFM = {
     id: getNextId(),
     description: failureModeData.description || failureModeData.name || 'Untitled Failure Mode',
-    component: parseInt(failureModeData.component),
+    component: parseInt(failureModeData.component), // CRITICAL: Always store as number
     system_level_effect: failureModeData.system_level_effect || '',
-    failure_rate_total: failureModeData.Failure_rate_total || failureModeData.failure_rate_total || 0,
+    failure_rate_total: failureRate || 0,
+    Failure_rate_total: failureRate || 0, // Store both for compatibility
     is_SPF: failureModeData.is_SPF || false,
     is_MPF: failureModeData.is_MPF || false,
     SPF_safety_mechanism: failureModeData.SPF_safety_mechanism || '',
-    SPF_diagnostic_coverage: failureModeData.SPF_diagnostic_coverage || 0,
+    SPF_diagnostic_coverage: parseFloat(failureModeData.SPF_diagnostic_coverage) || 0,
     MPF_safety_mechanism: failureModeData.MPF_safety_mechanism || '',
-    MPF_diagnostic_coverage: failureModeData.MPF_diagnostic_coverage || 0,
-    // Keep these for backward compatibility if needed, or mapping
+    MPF_diagnostic_coverage: parseFloat(failureModeData.MPF_diagnostic_coverage) || 0,
     failure_rate_percentage: failureModeData.failure_rate_percentage || 0,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
@@ -252,11 +275,34 @@ export const updateFailureMode = async (failureModeId, failureModeData) => {
   if (index === -1) {
     throw new Error('Failure mode not found');
   }
+  
+  // Handle both Failure_rate_total and failure_rate_total
+  const failureRate = failureModeData.Failure_rate_total !== undefined 
+    ? parseFloat(failureModeData.Failure_rate_total) 
+    : (failureModeData.failure_rate_total !== undefined ? parseFloat(failureModeData.failure_rate_total) : undefined);
+  
+  // CRITICAL: Preserve component ID as a number (fixes disappearing bug)
+  const componentId = failureModeData.component !== undefined 
+    ? parseInt(failureModeData.component) 
+    : failureModes[index].component;
+  
+  // Update the failure mode
   failureModes[index] = {
     ...failureModes[index],
-    ...failureModeData,
+    description: failureModeData.description !== undefined ? failureModeData.description : failureModes[index].description,
+    system_level_effect: failureModeData.system_level_effect !== undefined ? failureModeData.system_level_effect : failureModes[index].system_level_effect,
+    is_SPF: failureModeData.is_SPF !== undefined ? failureModeData.is_SPF : failureModes[index].is_SPF,
+    is_MPF: failureModeData.is_MPF !== undefined ? failureModeData.is_MPF : failureModes[index].is_MPF,
+    SPF_safety_mechanism: failureModeData.SPF_safety_mechanism !== undefined ? failureModeData.SPF_safety_mechanism : failureModes[index].SPF_safety_mechanism,
+    SPF_diagnostic_coverage: failureModeData.SPF_diagnostic_coverage !== undefined ? parseFloat(failureModeData.SPF_diagnostic_coverage) : failureModes[index].SPF_diagnostic_coverage,
+    MPF_safety_mechanism: failureModeData.MPF_safety_mechanism !== undefined ? failureModeData.MPF_safety_mechanism : failureModes[index].MPF_safety_mechanism,
+    MPF_diagnostic_coverage: failureModeData.MPF_diagnostic_coverage !== undefined ? parseFloat(failureModeData.MPF_diagnostic_coverage) : failureModes[index].MPF_diagnostic_coverage,
+    component: componentId, // CRITICAL: Always keep as number
+    failure_rate_total: failureRate !== undefined ? failureRate : failureModes[index].failure_rate_total,
+    Failure_rate_total: failureRate !== undefined ? failureRate : (failureModes[index].Failure_rate_total || failureModes[index].failure_rate_total),
     updated_at: new Date().toISOString()
   };
+  
   setStorageData(STORAGE_KEYS.FAILURE_MODES, failureModes);
   return failureModes[index];
 };

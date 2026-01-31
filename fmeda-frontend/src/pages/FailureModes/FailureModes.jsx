@@ -38,8 +38,9 @@ export default function FailureModes({ currentProject }) {
     if (currentProject) {
       loadComponents();
       if (componentId) {
-        setSelectedComponent(componentId);
-        loadFailureModes(componentId);
+        const compIdNum = parseInt(componentId); // Ensure number
+        setSelectedComponent(compIdNum);
+        loadFailureModes(compIdNum);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -61,8 +62,10 @@ export default function FailureModes({ currentProject }) {
     if (!compId) return;
     
     try {
-      console.log(`Loading failure modes for component ID: ${compId}`);
-      const data = await getFailureModes(compId);
+      // Ensure compId is always a number
+      const compIdNum = typeof compId === 'string' ? parseInt(compId) : compId;
+      console.log(`Loading failure modes for component ID: ${compIdNum}`);
+      const data = await getFailureModes(compIdNum);
       console.log(`Received failure modes data:`, data);
       setFailureModes(data);
     } catch (error) {
@@ -81,14 +84,15 @@ export default function FailureModes({ currentProject }) {
 
   const handleComponentChange = (e) => {
     const compId = e.target.value;
-    setSelectedComponent(compId);
-    setForm(prev => ({ ...prev, component: compId }));
+    const compIdNum = parseInt(compId); // CRITICAL: Always convert to number
+    setSelectedComponent(compIdNum);
+    setForm(prev => ({ ...prev, component: compIdNum }));
     
-    const selectedComp = components.find(c => String(c.id) === String(compId));
+    const selectedComp = components.find(c => c.id === compIdNum);
     setCurrentComponent(selectedComp);
     
     if (compId) {
-      loadFailureModes(compId);
+      loadFailureModes(compIdNum);
     } else {
       setFailureModes([]);
       setCurrentComponent(null);
@@ -145,8 +149,9 @@ export default function FailureModes({ currentProject }) {
         MPF_diagnostic_coverage: form.is_MPF && form.MPF_diagnostic_coverage !== ''
           ? Number(form.MPF_diagnostic_coverage)
           : 0,
-        component: selectedComponent,
-        Failure_rate_total: compFit * (percent / 100)
+        component: parseInt(selectedComponent), // CRITICAL: Always ensure component is a number
+        Failure_rate_total: compFit * (percent / 100),
+        failure_rate_total: compFit * (percent / 100) // Send both for compatibility
       };
 
       console.log("Creating failure mode with data:", failureModeData);
@@ -171,7 +176,7 @@ export default function FailureModes({ currentProject }) {
         SPF_diagnostic_coverage: "",
         MPF_safety_mechanism: "",
         MPF_diagnostic_coverage: "",
-        component: selectedComponent
+        component: parseInt(selectedComponent) // Ensure number
       });
       setEditingId(null);
       setShowForm(false);
@@ -192,18 +197,20 @@ export default function FailureModes({ currentProject }) {
 
   const handleEdit = (failureMode) => {
     const compFit = parseFloat(currentComponent?.failure_rate || 0) || 0;
-    const percent = compFit > 0 ? (failureMode.failure_rate_total / compFit) * 100 : 0;
+    // Handle both field name variations
+    const fitRate = failureMode.failure_rate_total || failureMode.Failure_rate_total || 0;
+    const percent = compFit > 0 ? (fitRate / compFit) * 100 : 0;
     setForm({
       description: failureMode.description,
       failure_rate_percent: percent ? percent.toFixed(2) : "",
       system_level_effect: failureMode.system_level_effect,
       is_SPF: failureMode.is_SPF,
       is_MPF: failureMode.is_MPF,
-      SPF_safety_mechanism: failureMode.SPF_safety_mechanism,
-      SPF_diagnostic_coverage: failureMode.SPF_diagnostic_coverage.toString(),
-      MPF_safety_mechanism: failureMode.MPF_safety_mechanism,
-      MPF_diagnostic_coverage: failureMode.MPF_diagnostic_coverage.toString(),
-      component: failureMode.component
+      SPF_safety_mechanism: failureMode.SPF_safety_mechanism || '',
+      SPF_diagnostic_coverage: (failureMode.SPF_diagnostic_coverage || 0).toString(),
+      MPF_safety_mechanism: failureMode.MPF_safety_mechanism || '',
+      MPF_diagnostic_coverage: (failureMode.MPF_diagnostic_coverage || 0).toString(),
+      component: typeof failureMode.component === 'string' ? parseInt(failureMode.component) : failureMode.component // CRITICAL: Always ensure component is a number
     });
     setEditingId(failureMode.id);
     setShowForm(true);
@@ -496,7 +503,7 @@ export default function FailureModes({ currentProject }) {
                           SPF_diagnostic_coverage: "",
                           MPF_safety_mechanism: "",
                           MPF_diagnostic_coverage: "",
-                          component: selectedComponent
+                          component: parseInt(selectedComponent) // Ensure number
                         });
                         setEditingId(null);
                         setShowForm(false);
@@ -557,7 +564,7 @@ export default function FailureModes({ currentProject }) {
                   {failureModes.map((fm) => (
                     <tr key={fm.id}>
                       <td className={styles.description}>{fm.description}</td>
-                      <td className={styles.failureRate}>{fm.failure_rate_total}</td>
+                      <td className={styles.failureRate}>{fm.failure_rate_total || fm.Failure_rate_total || 0}</td>
                       <td className={styles.systemEffect}>{fm.system_level_effect}</td>
                       <td className={styles.safetyRelated}>{currentComponent?.is_safety_related ? "✅ Yes" : "❌ No"}</td>
                       <td className={styles.spf}>
