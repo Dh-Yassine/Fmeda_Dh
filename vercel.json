@@ -1,6 +1,8 @@
 {
   "version": 2,
-  "buildCommand": "cd fmeda-frontend && npm install && CI=false npm run build",
+  "framework": null,
+  "installCommand": "cd fmeda-frontend && npm install",
+  "buildCommand": "cd fmeda-frontend && CI=false npm run build",
   "outputDirectory": "fmeda-frontend/build",
   "rewrites": [
     {
