@@ -169,7 +169,7 @@ export const createComponent = async (componentData) => {
     type: componentData.type || componentData.category || '',
     failure_rate: componentData.failure_rate || componentData.fit_rate || 0,
     is_safety_related: componentData.is_safety_related || false,
-    related_sfs: componentData.related_sfs || [],
+    related_sfs: (componentData.related_sfs || []).map(id => parseInt(id, 10)).filter(n => !Number.isNaN(n)),
     project: parseInt(componentData.project),
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
@@ -193,7 +193,9 @@ export const updateComponent = async (componentId, componentData) => {
     type: componentData.type !== undefined ? componentData.type : components[index].type,
     failure_rate: componentData.failure_rate !== undefined ? parseFloat(componentData.failure_rate) : components[index].failure_rate,
     is_safety_related: componentData.is_safety_related !== undefined ? componentData.is_safety_related : components[index].is_safety_related,
-    related_sfs: componentData.related_sfs !== undefined ? componentData.related_sfs.map(id => parseInt(id)) : components[index].related_sfs,
+    related_sfs: componentData.related_sfs !== undefined
+      ? componentData.related_sfs.map(id => parseInt(id, 10)).filter(n => !Number.isNaN(n))
+      : (components[index].related_sfs || []).map(id => parseInt(id, 10)).filter(n => !Number.isNaN(n)),
     project: components[index].project, // Preserve project ID
     updated_at: new Date().toISOString()
   };
@@ -349,86 +351,54 @@ export const calculateFMEDA = async (projectId) => {
     }
 
     let totalFIT = 0;
-    let safeFIT = 0; // Lambda_safe
-    let singlePointFIT = 0; // Lambda_SPF (undetected)
-    let residualFIT = 0; // Lambda_RF (undetected portion of SPF safety mechanism)
-    let mpfDetectedFIT = 0; // Lambda_MPF_detected
-    let mpfLatentFIT = 0; // Lambda_MPF_latent (undetected)
+    let residualFIT = 0;   // RF (per FMEDA.py)
+    let mpfDetectedFIT = 0; // MPFD
+    let mpfLatentFIT = 0;   // MPFL
 
-    // Auxiliary sums
-    let detectedFIT = 0; // Total detected (for simplified SPFM)
+    // safetyrelated = sum of related components' total failure_rate (per FMEDA.py)
+    let safetyrelated = 0;
+    for (const comp of sfComponents) {
+      safetyrelated += parseFloat(comp.failure_rate) || 0;
+    }
 
     for (const fm of allFailureModes) {
-      // Use stored total FIT or calculate from percentage
-      let baseFIT = fm.failure_rate_total;
-      if (baseFIT === undefined || baseFIT === null) {
-        baseFIT = (fm.componentFitRate * (fm.failure_rate_percentage || 0) / 100);
-      }
-
+      const baseFIT = fm.Failure_rate_total ?? fm.failure_rate_total ?? 0;
       totalFIT += baseFIT;
 
-      const isSafe = !fm.is_SPF && !fm.is_MPF;
-      if (isSafe || fm.safe_fault) {
-        safeFIT += baseFIT;
-      } else if (fm.is_SPF) {
-        // Single Point Fault
-        const coverage = fm.SPF_diagnostic_coverage || 0;
-        const detected = baseFIT * (coverage / 100);
-        const undetected = baseFIT * (1 - coverage / 100);
+      // RF = is_SPF * Failure_rate_total * (1 - SPF_diagnostic_coverage/100) per FMEDA.py
+      const rfThis = fm.is_SPF ? baseFIT * (1 - (parseFloat(fm.SPF_diagnostic_coverage) || 0) / 100) : 0;
+      residualFIT += rfThis;
 
-        detectedFIT += detected;
-        // Undetected SPF constitutes Residual Fault or Single Point Fault?
-        // Usually:
-        // Lambda_SPF = faults with NO safety mechanism -> all undetected
-        // Lambda_RF = faults WITH safety mechanism but coverage < 100% -> undetected portion
-        if (fm.SPF_safety_mechanism && fm.SPF_safety_mechanism !== 'None' && fm.SPF_safety_mechanism !== '') {
-          residualFIT += undetected;
-        } else {
-          singlePointFIT += undetected;
-        }
-      } else if (fm.is_MPF) {
-        // Multiple Point Fault
-        const coverage = fm.MPF_diagnostic_coverage || 0;
-        const detected = baseFIT * (coverage / 100);
-        const latent = baseFIT * (1 - coverage / 100);
-
-        mpfDetectedFIT += detected;
-        mpfLatentFIT += latent;
-        detectedFIT += detected; // Contributing to detected sum
+      // MPFL, MPFD from (Failure_rate_total - RF) per FMEDA.py set_mpf_mechanism
+      if (fm.is_MPF) {
+        const mpfBase = baseFIT - rfThis;
+        const cov = parseFloat(fm.MPF_diagnostic_coverage) || 0;
+        mpfLatentFIT += mpfBase * (1 - cov / 100);
+        mpfDetectedFIT += mpfBase * (cov / 100);
       }
     }
 
-    // SPFM = 1 - (Sum(Lambda_SPF) + Sum(Lambda_RF)) / Sum(Lambda_Safety_Related)
-    // Assuming all stored failure modes are safety related (based on component flag or just inclusion)
-    // If totalFIT is 0, avoid division by zero
-    const spfm = totalFIT > 0 ? (1 - ((singlePointFIT + residualFIT) / totalFIT)) * 100 : 0;
+    // SPFM = 1 - (RF / safetyrelated) per FMEDA.py; use totalFIT if safetyrelated is 0
+    const denomSPFM = safetyrelated > 0 ? safetyrelated : totalFIT;
+    const spfm = denomSPFM > 0 ? (1 - (residualFIT / denomSPFM)) * 100 : 0;
 
-    // LFM = 1 - Sum(Lambda_MPF_latent) / (Sum(Lambda_Total) - Sum(Lambda_Safe) - Sum(Lambda_SPF) - Sum(Lambda_RF))
-    const lfmDenom = totalFIT - safeFIT - singlePointFIT - residualFIT;
+    // LFM = 1 - MPFL / (safetyrelated - RF) per FMEDA.py
+    const lfmDenom = safetyrelated - residualFIT;
     const lfm = lfmDenom > 0 ? (1 - (mpfLatentFIT / lfmDenom)) * 100 : 0;
 
-    // PMHF (Probabilistic Metric for Random Hardware Failures)
-    // Simplified: Sum(Lambda_SPF) + Sum(Lambda_RF) + Sum(Lambda_MPF_latent) (very simplified)
-    // Usually involves lifetime.
-    // Let's use the previous approximation: undetectedFIT * lifetime?
-    // undetectedFIT here roughly corresponds to singlePointFIT + residualFIT + mpfLatentFIT
-    const totalUndetected = singlePointFIT + residualFIT + mpfLatentFIT;
-    const pmhf = totalUndetected; // FITS (10^-9/hour)
-    // If we want probability over lifetime: pmhf * lifetime (if purely constant rate approximation)
-    // But typically PMHF is expressed in FITs (average probability per hour).
-    // Wait, ISO 26262 Part 5 calls it "Probabilistic Metric...", target is usually 10^-8/h (10 FIT).
-    // So summing the FITs of hazard-contributing faults is a standard approximation.
+    // MPHF = (RF/1e9) + ((MPFL/1e9) * (MPFD/1e9) * lifetime) per FMEDA.py (dimensionless probability)
+    const mphfProb = (residualFIT / 1e9) + ((mpfLatentFIT / 1e9) * (mpfDetectedFIT / 1e9) * lifetime);
 
     results.push({
       safety_function: sf.id,
       project_id: projectId,
-      spfm: spfm,
-      lfm: lfm,
-      mphf: pmhf, // In FITs
+      spfm,
+      lfm,
+      mphf: mphfProb,
       rf: residualFIT,
       mpfl: mpfLatentFIT,
       mpfd: mpfDetectedFIT,
-      safetyrelated: totalFIT
+      safetyrelated: safetyrelated > 0 ? safetyrelated : totalFIT
     });
   }
 
@@ -441,6 +411,15 @@ export const getProjectResults = async (projectId) => {
 };
 
 // ==================== CSV Import/Export API ====================
+
+// Reset all storage and ID counter (used before full import so no ghost data remains)
+const clearStorageForImport = () => {
+  setStorageData(STORAGE_KEYS.PROJECTS, []);
+  setStorageData(STORAGE_KEYS.SAFETY_FUNCTIONS, []);
+  setStorageData(STORAGE_KEYS.COMPONENTS, []);
+  setStorageData(STORAGE_KEYS.FAILURE_MODES, []);
+  localStorage.setItem(STORAGE_KEYS.NEXT_ID, '1');
+};
 
 export const importProject = async (formData) => {
   const file = formData.get('file');
@@ -455,12 +434,13 @@ export const importProject = async (formData) => {
         const csvContent = e.target.result;
         const rows = parseCSV(csvContent);
 
+        // Replace all data: clear first so no ghost data from previous project
+        clearStorageForImport();
+
         // 1. Process Project
         const projectRow = rows.find(r => r.section === 'project');
         if (!projectRow) {
-          // Fallback: try to find any row that looks like a project or create default
-          // logic same as before? No, let's complain if invalid format.
-          throw new Error('Invalid CVS format: No project section found');
+          throw new Error('Invalid CSV format: No project section found');
         }
 
         const project = {
@@ -480,17 +460,17 @@ export const importProject = async (formData) => {
         const sfMap = {}; // Maps external sf_id (string) to internal numeric ID
 
         rows.filter(r => r.section === 'sf').forEach(row => {
+          const sfIdStr = String((row.id || row.sf_id || '')).trim() || `SF-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
           const newSF = {
             id: getNextId(),
-            sf_id: row.id || row.sf_id || `SF-${Math.random().toString(36).substr(2, 5).toUpperCase()}`,
-            description: row.description || '',
-            target_integrity_level: row.target_integrity_level || 'QM',
+            sf_id: sfIdStr,
+            description: (row.description || '').trim(),
+            target_integrity_level: (row.target_integrity_level || 'QM').trim(),
             project: project.id,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
           };
-          // Map keys
-          sfMap[newSF.sf_id] = newSF.id;
+          sfMap[sfIdStr] = newSF.id;
           safetyFunctions.push(newSF);
         });
         setStorageData(STORAGE_KEYS.SAFETY_FUNCTIONS, safetyFunctions);
@@ -502,7 +482,7 @@ export const importProject = async (formData) => {
         rows.filter(r => r.section === 'component').forEach(row => {
           // Parse related SF IDs
           const relatedSfIdsRaw = row.related_sf_ids || '';
-          const relatedSfIds = relatedSfIdsRaw.split(',').map(s => s.trim()).filter(s => s);
+          const relatedSfIds = relatedSfIdsRaw.split(',').map(s => String(s).trim()).filter(s => s);
           const relatedInternalIds = relatedSfIds.map(sid => sfMap[sid]).filter(id => id !== undefined);
 
           const isSafetyRelated = (String(row.is_safety_related).toLowerCase() === 'true') || relatedInternalIds.length > 0;
@@ -527,15 +507,17 @@ export const importProject = async (formData) => {
         const failureModes = getStorageData(STORAGE_KEYS.FAILURE_MODES);
 
         rows.filter(r => r.section === 'fm').forEach(row => {
-          const compExternalId = row.component_id;
+          const compExternalId = String(row.component_id || '').trim();
           const compInternalId = compMap[compExternalId];
 
           if (compInternalId) {
+            const fitTotal = parseFloat(row.Failure_rate_total) || 0;
             const newFM = {
               id: getNextId(),
               component: compInternalId,
               description: row.description || 'Untitled Failure Mode',
-              failure_rate_total: parseFloat(row.Failure_rate_total) || 0,
+              Failure_rate_total: fitTotal,
+              failure_rate_total: fitTotal,
               system_level_effect: row.system_level_effect || '',
               is_SPF: parseInt(row.is_SPF) === 1,
               is_MPF: parseInt(row.is_MPF) === 1,
@@ -686,7 +668,7 @@ export const exportProject = async (project) => {
         if (col === 'section') return 'fm';
         if (col === 'component_id') return escape(comp.comp_id);
         if (col === 'description') return escape(fm.description);
-        if (col === 'Failure_rate_total') return escape(fm.failure_rate_total);
+        if (col === 'Failure_rate_total') return escape(fm.Failure_rate_total ?? fm.failure_rate_total ?? 0);
         if (col === 'system_level_effect') return escape(fm.system_level_effect);
         if (col === 'is_SPF') return fm.is_SPF ? '1' : '0';
         if (col === 'SPF_safety_mechanism') return escape(fm.SPF_safety_mechanism);
@@ -705,7 +687,7 @@ export const exportProject = async (project) => {
   const a = document.createElement('a');
   const safeName = (project.name || `project_${project.id}`).replace(/[^a-zA-Z0-9_-]/g, '_');
   a.href = url;
-  a.download = `${safeName}_fmeda.csv`;
+  a.download = `${safeName}.csv`;
   document.body.appendChild(a);
   a.click();
   window.URL.revokeObjectURL(url);

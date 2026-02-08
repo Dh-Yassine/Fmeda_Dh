@@ -95,7 +95,8 @@ const PREDEFINED_FAILURE_MODES = {
     { "description": "Open circuit", "fit_rate": 28.0, "system_effect": "Loss of clock signal" },
     { "description": "Short circuit", "fit_rate": 14.0, "system_effect": "Clock malfunction" },
     { "description": "Frequency drift", "fit_rate": 10.0, "system_effect": "Inaccurate timing" }
-  ]
+  ],
+  "Other": []
 };
 
 // Custom Select Component
@@ -742,9 +743,10 @@ export default function Components({ currentProject }) {
                   <td className={styles.relatedSfs}>
                     {comp.related_sfs && comp.related_sfs.length > 0
                       ? comp.related_sfs.map(sfId => {
-                        const sf = safetyFunctions.find(s => s.id === sfId);
-                        return sf ? sf.sf_id : null;
-                      }).filter(Boolean).join(", ")
+                          const id = typeof sfId === "number" ? sfId : parseInt(sfId, 10);
+                          const sf = safetyFunctions.find(s => s.id === id);
+                          return sf ? sf.sf_id : "Unknown";
+                        }).join(", ")
                       : "-"}
                   </td>
                   <td className={styles.actions}>
