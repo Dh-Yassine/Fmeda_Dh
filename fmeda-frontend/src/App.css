@@ -9,7 +9,7 @@
   flex: 1;
   margin-left: 250px; /* Width of sidebar */
   min-height: 100vh;
-  overflow-x: hidden;
+  overflow-x: auto; /* Allow horizontal scroll for wide tables (e.g. Failure Modes) */
   position: relative;
 }
 
@@ -77,7 +77,53 @@ body {
 }
 
 /* Ensure all main buttons are position: relative for ripple */
-.saveBtn, .actionBtn, .continueBtn, .importBtn, .cancelBtn, .clearBtn, .exportBtn, .stepBtn, .editBtn, .removeBtn, .fmBtn {
+.saveBtn, .actionBtn, .continueBtn, .importBtn, .cancelBtn, .clearBtn, .exportBtn, .stepBtn, .editBtn, .removeBtn, .fmBtn, .deleteBtn, .calculateBtn, .warningBtn, .backBtn {
   position: relative;
   overflow: hidden;
+}
+
+/* Global table polish: smooth row hover (no transform on tr to avoid layout shift) */
+.tableWrapper {
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+.table tbody tr {
+  transition: background-color 0.2s ease, box-shadow 0.2s ease;
+}
+.table tbody tr:hover {
+  box-shadow: inset 3px 0 0 #667eea;
+}
+.table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  white-space: nowrap;
+}
+.table .actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.table .editBtn, .table .deleteBtn, .table .removeBtn, .table .fmBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.9rem;
+  font-size: 0.875rem;
+  border-radius: 10px;
+  font-weight: 600;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.table .editBtn:hover, .table .removeBtn:hover, .table .fmBtn:hover {
+  transform: translateY(-2px);
+}
+.table .deleteBtn:hover {
+  transform: translateY(-2px);
+}
+/* Subtle entrance for table rows (use with motion.tr) */
+@keyframes tableRowIn {
+  from { opacity: 0; transform: translateX(-8px); }
+  to { opacity: 1; transform: translateX(0); }
 }

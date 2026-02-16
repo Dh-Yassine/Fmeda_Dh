@@ -4,8 +4,10 @@ import {
   getSafetyFunctions, 
   getComponents,
   getProjectResults,
+  getTotalFailureModeCount,
   exportProject
 } from "../../api/fmedaApi";
+import RippleButton from "../../components/RippleButton";
 import styles from "./Results.module.css";
 
 // Utility function to format small numbers in scientific notation
@@ -33,9 +35,9 @@ export default function Results({ currentProject }) {
   const [safetyFunctions, setSafetyFunctions] = useState([]);
   const [components, setComponents] = useState([]);
   const [results, setResults] = useState(null);
+  const [failureModeCount, setFailureModeCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
-  // UI selection state not used currently
   const [isExporting, setIsExporting] = useState(false);
   const navigate = useNavigate();
 
@@ -50,14 +52,16 @@ export default function Results({ currentProject }) {
     
     try {
       setIsLoading(true);
-      const [sfData, compData, resultsData] = await Promise.all([
+      const [sfData, compData, resultsData, fmCount] = await Promise.all([
         getSafetyFunctions(currentProject.id),
         getComponents(currentProject.id),
-        getProjectResults(currentProject.id)
+        getProjectResults(currentProject.id),
+        getTotalFailureModeCount(currentProject.id)
       ]);
       setSafetyFunctions(sfData);
       setComponents(compData);
       setResults(resultsData);
+      setFailureModeCount(fmCount);
     } catch (error) {
       console.error("Failed to load results:", error);
       setError("Failed to load analysis results.");
@@ -117,10 +121,10 @@ export default function Results({ currentProject }) {
         <div className={styles.noProject}>
           <h2>⚠️ No Project Selected</h2>
           <p>Please create or load a project first to view results.</p>
-          <button className={styles.backBtn} onClick={() => navigate("/")}>
+          <RippleButton className={styles.backBtn} onClick={() => navigate("/")}>
             <span className={styles.btnIcon}>🏠</span>
             <span>Go to Home</span>
-          </button>
+          </RippleButton>
         </div>
       </div>
     );
@@ -186,9 +190,7 @@ export default function Results({ currentProject }) {
                 <div className={styles.cardIcon}>🔍</div>
                 <div className={styles.cardContent}>
                   <h4>Failure Modes</h4>
-                  <p className={styles.cardValue}>
-                    {components.reduce((total, comp) => total + (comp.failure_modes?.length || 0), 0)}
-                  </p>
+                  <p className={styles.cardValue}>{failureModeCount}</p>
                   <p className={styles.cardDescription}>Total failure modes</p>
                 </div>
               </div>
@@ -359,7 +361,7 @@ export default function Results({ currentProject }) {
             </div>
 
             <div className={styles.exportActions}>
-              <button 
+              <RippleButton
                 className={styles.exportBtn}
                 onClick={handleExportResults}
                 disabled={isExporting}
@@ -370,20 +372,7 @@ export default function Results({ currentProject }) {
                 <span>
                   {isExporting ? "Exporting..." : "Export to CSV"}
                 </span>
-              </button>
-              
-              <button 
-                className={styles.exportBtn}
-                onClick={handleExportResults}
-                disabled={isExporting}
-              >
-                <span className={styles.btnIcon}>
-                  {isExporting ? "⏳" : "📊"}
-                </span>
-                <span>
-                  {isExporting ? "Exporting..." : "Export Report"}
-                </span>
-              </button>
+              </RippleButton>
             </div>
           </div>
         </>
@@ -394,32 +383,22 @@ export default function Results({ currentProject }) {
           <div className={styles.noResultsIcon}>📊</div>
           <h3>No Analysis Results</h3>
           <p>No FMEDA analysis has been performed yet. Please run the analysis first.</p>
-          <button 
-            className={styles.analysisBtn}
-            onClick={handleBackToAnalysis}
-          >
+          <RippleButton className={styles.analysisBtn} onClick={handleBackToAnalysis}>
             <span className={styles.btnIcon}>🚀</span>
             <span>Run FMEDA Analysis</span>
-          </button>
+          </RippleButton>
         </div>
       )}
 
       <div className={styles.navigationActions}>
-        <button 
-          className={styles.backBtn}
-          onClick={handleBackToAnalysis}
-        >
+        <RippleButton className={styles.backBtn} onClick={handleBackToAnalysis}>
           <span className={styles.btnIcon}>←</span>
           <span>Back to Analysis</span>
-        </button>
-
-        <button 
-          className={styles.homeBtn}
-          onClick={handleBackToHome}
-        >
+        </RippleButton>
+        <RippleButton className={styles.homeBtn} onClick={handleBackToHome}>
           <span className={styles.btnIcon}>🏠</span>
           <span>Go to Home</span>
-        </button>
+        </RippleButton>
       </div>
     </div>
   );

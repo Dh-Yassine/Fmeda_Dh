@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
 import {
   getComponents,
   createComponent,
@@ -720,21 +721,27 @@ export default function Components({ currentProject }) {
             <p>Components represent the hardware elements that make up your safety-critical system.</p>
           </div>
         ) : (
-          <table className={styles.table}>
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Type</th>
-                <th>Failure Rate (FIT)</th>
-                <th>Safety Related</th>
-                <th>Related Safety Functions</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {components.map((comp) => (
-                <tr key={comp.id}>
-                  <td className={styles.compId}>{comp.comp_id}</td>
+          <div className={styles.tableWrapper}>
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Type</th>
+                  <th>Failure Rate (FIT)</th>
+                  <th>Safety Related</th>
+                  <th>Related Safety Functions</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {components.map((comp, i) => (
+                  <motion.tr
+                    key={comp.id}
+                    initial={{ opacity: 0, x: -12 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.25, delay: Math.min(i * 0.03, 0.25) }}
+                  >
+                    <td className={styles.compId}>{comp.comp_id}</td>
                   <td className={styles.type}>{comp.type}</td>
                   <td className={styles.failureRate}>{comp.failure_rate}</td>
                   <td className={styles.safetyRelated}>
@@ -767,10 +774,11 @@ export default function Components({ currentProject }) {
                       <span>Failure Modes</span>
                     </RippleButton>
                   </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  </motion.tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 

@@ -386,6 +386,12 @@
   box-sizing: border-box;
 }
 
+.tableWrapper {
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
 .tableHeader {
   display: flex;
   justify-content: space-between;
@@ -490,10 +496,8 @@
   background: rgba(255, 255, 255, 0.03);
 }
 
-.table tr:hover {
-  background: rgba(102, 126, 234, 0.1);
-  transform: scale(1.01);
-  transition: all 0.3s ease;
+.table tbody tr:hover {
+  background: rgba(102, 126, 234, 0.12);
 }
 
 .sfId {

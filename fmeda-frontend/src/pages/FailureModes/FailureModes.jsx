@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { motion } from "framer-motion";
 import styles from "./FailureModes.module.css";
+import RippleButton from "../../components/RippleButton";
 import { 
   getFailureModes, 
   createFailureMode, 
@@ -299,14 +301,14 @@ export default function FailureModes({ currentProject }) {
 
             {selectedComponent && !showForm && !editingId && (
               <div className={styles.formActions}>
-                <button
+                <RippleButton
                   type="button"
                   className={styles.saveBtn}
                   onClick={() => setShowForm(true)}
                 >
                   <span className={styles.btnIcon}>➕</span>
                   <span>Add Failure Mode</span>
-                </button>
+                </RippleButton>
               </div>
             )}
 
@@ -475,8 +477,8 @@ export default function FailureModes({ currentProject }) {
                 )}
 
                 <div className={styles.formActions}>
-                  <button 
-                    className={styles.saveBtn} 
+                  <RippleButton
+                    className={styles.saveBtn}
                     type="submit"
                     disabled={isLoading}
                   >
@@ -486,10 +488,9 @@ export default function FailureModes({ currentProject }) {
                     <span>
                       {isLoading ? "Saving..." : (editingId ? "Update Failure Mode" : "Add Failure Mode")}
                     </span>
-                  </button>
-                  
+                  </RippleButton>
                   {(editingId || showForm) && (
-                    <button
+                    <RippleButton
                       type="button"
                       className={styles.cancelBtn}
                       onClick={() => {
@@ -511,7 +512,7 @@ export default function FailureModes({ currentProject }) {
                     >
                       <span className={styles.btnIcon}>❌</span>
                       <span>Cancel</span>
-                    </button>
+                    </RippleButton>
                   )}
                 </div>
               </>
@@ -524,14 +525,11 @@ export default function FailureModes({ currentProject }) {
             <div className={styles.tableHeader}>
               <h3>Failure Modes for {currentComponent?.comp_id} ({failureModes.length})</h3>
               {failureModes.length > 0 && (
-                <button 
-                  className={styles.continueBtn} 
-                  onClick={handleContinue}
-                >
+                <RippleButton className={styles.continueBtn} onClick={handleContinue}>
                   <span className={styles.btnIcon}>🚀</span>
                   <span>Continue to FMEDA Analysis</span>
                   <span className={styles.btnArrow}>→</span>
-                </button>
+                </RippleButton>
               )}
             </div>
 
@@ -543,68 +541,59 @@ export default function FailureModes({ currentProject }) {
                 <p>Failure modes describe how components can fail and their safety mechanisms.</p>
               </div>
             ) : (
-              <table className={styles.table}>
-                <thead>
-                  <tr>
-                    <th>Description</th>
-                    <th>FIT Rate</th>
-                    <th className={styles.systemEffectHeader}>System Effect</th>
-                    <th>Safety Related</th>
-                    <th>SPF</th>
-                    <th>SPF Mechanism</th>
-                    <th>SPF DC%</th>
-                    <th>MPF</th>
-                    <th>MPF Mechanism</th>
-                    <th>MPF DC%</th>
-                    <th>Properties</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {failureModes.map((fm) => (
-                    <tr key={fm.id}>
-                      <td className={styles.description}>{fm.description}</td>
-                      <td className={styles.failureRate}>{fm.failure_rate_total || fm.Failure_rate_total || 0}</td>
-                      <td className={styles.systemEffect}>{fm.system_level_effect}</td>
-                      <td className={styles.safetyRelated}>{currentComponent?.is_safety_related ? "✅ Yes" : "❌ No"}</td>
-                      <td className={styles.spf}>
-                        {fm.is_SPF ? "✅ Yes" : "❌ No"}
-                      </td>
-                      <td className={styles.spfMechanism}>{fm.SPF_safety_mechanism || "-"}</td>
-                      <td className={styles.spfDc}>
-                        {fm.is_SPF ? `${fm.SPF_diagnostic_coverage}%` : "N/A"}
-                      </td>
-                      <td className={styles.mpf}>
-                        {fm.is_MPF ? "✅ Yes" : "❌ No"}
-                      </td>
-                      <td className={styles.mpfMechanism}>{fm.MPF_safety_mechanism || "-"}</td>
-                      <td className={styles.mpfDc}>
-                        {fm.is_MPF ? `${fm.MPF_diagnostic_coverage}%` : "N/A"}
-                      </td>
-                      <td className={styles.properties}>
-                        <button 
-                          className={styles.editBtn} 
-                          onClick={() => handleEdit(fm)}
-                          title="Edit Properties"
-                        >
-                          <span className={styles.btnIcon}>⚙️</span>
-                          <span>Properties</span>
-                        </button>
-                      </td>
-                      <td className={styles.actions}>
-                        <button 
-                          className={styles.deleteBtn} 
-                          onClick={() => handleDelete(fm.id)}
-                          title="Delete Failure Mode"
-                        >
-                          <span className={styles.btnIcon}>🗑️</span>
-                          <span>Delete</span>
-                        </button>
-                      </td>
+              <div className={styles.tableWrapper}>
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th>Description</th>
+                      <th>FIT Rate</th>
+                      <th className={styles.systemEffectHeader}>Local Effect</th>
+                      <th>Safety Related</th>
+                      <th>SPF</th>
+                      <th>SPF Mechanism</th>
+                      <th>SPF DC%</th>
+                      <th>MPF</th>
+                      <th>MPF Mechanism</th>
+                      <th>MPF DC%</th>
+                      <th>Properties</th>
+                      <th>Actions</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {failureModes.map((fm, i) => (
+                      <motion.tr
+                        key={fm.id}
+                        initial={{ opacity: 0, x: -12 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.22, delay: Math.min(i * 0.025, 0.3) }}
+                      >
+                        <td className={styles.description}>{fm.description}</td>
+                        <td className={styles.failureRate}>{fm.failure_rate_total || fm.Failure_rate_total || 0}</td>
+                        <td className={styles.systemEffect}>{fm.system_level_effect}</td>
+                        <td className={styles.safetyRelated}>{currentComponent?.is_safety_related ? "✅ Yes" : "❌ No"}</td>
+                        <td className={styles.spf}>{fm.is_SPF ? "✅ Yes" : "❌ No"}</td>
+                        <td className={styles.spfMechanism}>{fm.SPF_safety_mechanism || "-"}</td>
+                        <td className={styles.spfDc}>{fm.is_SPF ? `${fm.SPF_diagnostic_coverage}%` : "N/A"}</td>
+                        <td className={styles.mpf}>{fm.is_MPF ? "✅ Yes" : "❌ No"}</td>
+                        <td className={styles.mpfMechanism}>{fm.MPF_safety_mechanism || "-"}</td>
+                        <td className={styles.mpfDc}>{fm.is_MPF ? `${fm.MPF_diagnostic_coverage}%` : "N/A"}</td>
+                        <td className={styles.properties}>
+                          <RippleButton className={styles.editBtn} onClick={() => handleEdit(fm)} title="Edit Properties">
+                            <span className={styles.btnIcon}>⚙️</span>
+                            <span>Properties</span>
+                          </RippleButton>
+                        </td>
+                        <td className={styles.actions}>
+                          <RippleButton className={styles.deleteBtn} onClick={() => handleDelete(fm.id)} title="Delete">
+                            <span className={styles.btnIcon}>🗑️</span>
+                            <span>Delete</span>
+                          </RippleButton>
+                        </td>
+                      </motion.tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
         )}

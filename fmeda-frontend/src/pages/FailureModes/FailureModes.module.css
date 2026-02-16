@@ -2,7 +2,7 @@
   min-height: 100vh;
   background: linear-gradient(145deg, #0a0e27 0%, #1a1d3a 30%, #2d1b69 100%);
   position: relative;
-  overflow-x: hidden;
+  overflow-x: auto; /* Allow horizontal scroll for wide table */
   color: white;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   padding: 2rem 4rem 4rem;
@@ -466,9 +466,37 @@
 
 .tableSection {
   margin-top: 3rem;
-  overflow-x: auto;
+  width: 100%;
   max-width: 100%;
+  overflow-x: auto;
+  overflow-y: visible;
   box-sizing: border-box;
+  -webkit-overflow-scrolling: touch;
+  /* Ensure horizontal scrollbar is visible when table overflows */
+  scrollbar-width: thin;
+}
+
+.tableSection::-webkit-scrollbar {
+  height: 10px;
+}
+.tableSection::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 5px;
+}
+.tableSection::-webkit-scrollbar-thumb {
+  background: rgba(102, 126, 234, 0.5);
+  border-radius: 5px;
+}
+.tableSection::-webkit-scrollbar-thumb:hover {
+  background: rgba(102, 126, 234, 0.8);
+}
+
+.tableWrapper {
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  display: inline-block;
+  min-width: 100%;
 }
 
 .tableHeader {
@@ -544,7 +572,7 @@
 
 .table {
   width: 100%;
-  min-width: 800px;
+  min-width: 1100px; /* Wide enough so table scrolls and Actions column is reachable */
   border-collapse: collapse;
   margin-top: 1rem;
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03));
@@ -578,8 +606,8 @@
   background: rgba(255, 255, 255, 0.03);
 }
 
-.table tr:hover {
-  background: rgba(102, 126, 234, 0.1);
+.table tbody tr:hover {
+  background: rgba(102, 126, 234, 0.12);
   transform: scale(1.01);
   transition: all 0.3s ease;
 }

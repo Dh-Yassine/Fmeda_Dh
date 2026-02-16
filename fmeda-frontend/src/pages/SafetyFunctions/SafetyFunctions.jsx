@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
 import styles from "./SafetyFunctions.module.css";
+import RippleButton from "../../components/RippleButton";
 import {
   getSafetyFunctions,
   createSafetyFunction,
@@ -8,16 +10,9 @@ import {
   deleteSafetyFunction,
 } from "../../api/fmedaApi";
 
-const ASIL_LEVELS = [
-  { value: "ASIL A", label: "ASIL A", description: "Lowest safety integrity level", color: "#4caf50" },
-  { value: "ASIL B", label: "ASIL B", description: "Low safety integrity level", color: "#ff9800" },
-  { value: "ASIL C", label: "ASIL C", description: "High safety integrity level", color: "#f44336" },
-  { value: "ASIL D", label: "ASIL D", description: "Highest safety integrity level", color: "#9c27b0" }
-];
-
 export default function SafetyFunctions({ currentProject }) {
   const [safetyFunctions, setSafetyFunctions] = useState([]);
-  const [form, setForm] = useState({ sf_id: "", description: "", target_integrity_level: ASIL_LEVELS[0].value });
+  const [form, setForm] = useState({ sf_id: "", description: "" });
   const [editingId, setEditingId] = useState(null);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -54,8 +49,8 @@ export default function SafetyFunctions({ currentProject }) {
       return;
     }
 
-    if (!form.sf_id.trim() || !form.description.trim()) {
-      setError("ID and Description are required.");
+    if (!form.sf_id.trim()) {
+      setError("Safety Function ID is required.");
       return;
     }
 
@@ -71,7 +66,7 @@ export default function SafetyFunctions({ currentProject }) {
           project: currentProject.id
         });
       }
-      setForm({ sf_id: "", description: "", target_integrity_level: ASIL_LEVELS[0].value });
+      setForm({ sf_id: "", description: "" });
       setEditingId(null);
       await loadSafetyFunctions();
     } catch (error) {
@@ -84,8 +79,7 @@ export default function SafetyFunctions({ currentProject }) {
   const handleEdit = (sf) => {
     setForm({
       sf_id: sf.sf_id,
-      description: sf.description,
-      target_integrity_level: sf.target_integrity_level,
+      description: sf.description || "",
     });
     setEditingId(sf.id);
   };
@@ -107,11 +101,6 @@ export default function SafetyFunctions({ currentProject }) {
     } else {
       alert("Please add at least one Safety Function before continuing.");
     }
-  };
-
-  const getAsilColor = (level) => {
-    const asil = ASIL_LEVELS.find(a => a.value === level);
-    return asil ? asil.color : "#666";
   };
 
   if (!currentProject) {
@@ -162,55 +151,23 @@ export default function SafetyFunctions({ currentProject }) {
         <div className={styles.formRow}>
           <div className={styles.formGroup}>
             <label className={styles.label}>
-              <span className={styles.labelIcon}>🎯</span>
-              Target Integrity Level
-            </label>
-            <div className={styles.asilSelector}>
-              {ASIL_LEVELS.map((level) => (
-                <label key={level.value} className={styles.asilOption}>
-                  <input
-                    type="radio"
-                    name="target_integrity_level"
-                    value={level.value}
-                    checked={form.target_integrity_level === level.value}
-                    onChange={handleChange}
-                    className={styles.asilRadio}
-                  />
-                  <div 
-                    className={styles.asilCard}
-                    style={{ borderColor: getAsilColor(level.value) }}
-                  >
-                    <div className={styles.asilLabel}>{level.label}</div>
-                    <div className={styles.asilDescription}>{level.description}</div>
-                  </div>
-                </label>
-              ))}
-            </div>
-          </div>
-        </div>
-        
-        <div className={styles.formRow}>
-          <div className={styles.formGroup}>
-            <label className={styles.label}>
               <span className={styles.labelIcon}>📝</span>
-              Description
+              Description (optional)
             </label>
             <textarea
               name="description"
-              placeholder="Describe the safety function, its purpose, and requirements. Be specific about what this safety function protects against..."
+              placeholder="Optionally describe the safety function, its purpose, and requirements..."
               value={form.description}
               onChange={handleChange}
               className={styles.textarea}
-              required
               rows="4"
             />
-            <p className={styles.helpText}>Provide a detailed description of the safety function and its requirements</p>
           </div>
         </div>
 
         <div className={styles.formActions}>
-          <button 
-            className={styles.saveBtn} 
+          <RippleButton
+            className={styles.saveBtn}
             type="submit"
             disabled={isLoading}
           >
@@ -220,20 +177,19 @@ export default function SafetyFunctions({ currentProject }) {
             <span>
               {isLoading ? "Saving..." : (editingId ? "Update Safety Function" : "Add Safety Function")}
             </span>
-          </button>
-          
+          </RippleButton>
           {editingId && (
-            <button
+            <RippleButton
               type="button"
               className={styles.cancelBtn}
               onClick={() => {
-                setForm({ sf_id: "", description: "", target_integrity_level: ASIL_LEVELS[0].value });
+                setForm({ sf_id: "", description: "" });
                 setEditingId(null);
               }}
             >
               <span className={styles.btnIcon}>❌</span>
               <span>Cancel</span>
-            </button>
+            </RippleButton>
           )}
         </div>
       </form>
@@ -244,14 +200,11 @@ export default function SafetyFunctions({ currentProject }) {
         <div className={styles.tableHeader}>
           <h3>Safety Functions ({safetyFunctions.length})</h3>
           {safetyFunctions.length > 0 && (
-            <button 
-              className={styles.continueBtn} 
-              onClick={handleContinue}
-            >
+            <RippleButton className={styles.continueBtn} onClick={handleContinue}>
               <span className={styles.btnIcon}>🚀</span>
               <span>Continue to Components</span>
               <span className={styles.btnArrow}>→</span>
-            </button>
+            </RippleButton>
           )}
         </div>
 
@@ -263,42 +216,41 @@ export default function SafetyFunctions({ currentProject }) {
             <p>Safety Functions define the critical safety requirements that your system must meet.</p>
           </div>
         ) : (
-          <table className={styles.table}>
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Description</th>
-                <th>ASIL Level</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {safetyFunctions.map((sf) => (
-                <tr key={sf.id}>
-                  <td className={styles.sfId}>{sf.sf_id}</td>
-                  <td className={styles.description}>{sf.description}</td>
-                  <td className={styles.asil}>
-                    <span 
-                      className={styles.asilBadge}
-                      style={{ backgroundColor: getAsilColor(sf.target_integrity_level) }}
-                    >
-                      {sf.target_integrity_level}
-                    </span>
-                  </td>
-                  <td className={styles.actions}>
-                    <button className={styles.editBtn} onClick={() => handleEdit(sf)}>
-                      <span className={styles.btnIcon}>✏️</span>
-                      <span>Edit</span>
-                    </button>
-                    <button className={styles.deleteBtn} onClick={() => handleDelete(sf.id)}>
-                      <span className={styles.btnIcon}>🗑️</span>
-                      <span>Delete</span>
-                    </button>
-                  </td>
+          <div className={styles.tableWrapper}>
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Description</th>
+                  <th>Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {safetyFunctions.map((sf, i) => (
+                  <motion.tr
+                    key={sf.id}
+                    initial={{ opacity: 0, x: -12 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.25, delay: i * 0.03 }}
+                    className={styles.tableRow}
+                  >
+                    <td className={styles.sfId}>{sf.sf_id}</td>
+                    <td className={styles.description}>{sf.description || "—"}</td>
+                    <td className={styles.actions}>
+                      <RippleButton className={styles.editBtn} onClick={() => handleEdit(sf)} title="Edit">
+                        <span className={styles.btnIcon}>✏️</span>
+                        <span>Edit</span>
+                      </RippleButton>
+                      <RippleButton className={styles.deleteBtn} onClick={() => handleDelete(sf.id)} title="Delete">
+                        <span className={styles.btnIcon}>🗑️</span>
+                        <span>Delete</span>
+                      </RippleButton>
+                    </td>
+                  </motion.tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </div>

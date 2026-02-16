@@ -315,6 +315,17 @@ export const deleteFailureMode = async (failureModeId) => {
   return { message: 'Failure mode deleted successfully' };
 };
 
+/** Total count of failure modes for all components in a project */
+export const getTotalFailureModeCount = async (projectId) => {
+  const components = await getComponents(projectId);
+  let total = 0;
+  for (const c of components) {
+    const fms = await getFailureModes(c.id);
+    total += fms.length;
+  }
+  return total;
+};
+
 // ==================== FMEDA Analysis API ====================
 
 export const calculateFMEDA = async (projectId) => {

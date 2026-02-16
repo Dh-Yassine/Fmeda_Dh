@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
 import styles from "./FMEDAAnalysis.module.css";
+import RippleButton from "../../components/RippleButton";
 import { 
   getSafetyFunctions, 
   getComponents,
+  getTotalFailureModeCount,
   calculateFMEDA 
 } from "../../api/fmedaApi";
 
@@ -31,6 +34,7 @@ const formatSmallNumber = (value) => {
 export default function FMEDAAnalysis({ currentProject }) {
   const [safetyFunctions, setSafetyFunctions] = useState([]);
   const [components, setComponents] = useState([]);
+  const [failureModeCount, setFailureModeCount] = useState(0);
   const [analysisResults, setAnalysisResults] = useState(null);
   const [isCalculating, setIsCalculating] = useState(false);
   const [error, setError] = useState("");
@@ -46,12 +50,14 @@ export default function FMEDAAnalysis({ currentProject }) {
     if (!currentProject) return;
     
     try {
-      const [sfData, compData] = await Promise.all([
+      const [sfData, compData, fmCount] = await Promise.all([
         getSafetyFunctions(currentProject.id),
-        getComponents(currentProject.id)
+        getComponents(currentProject.id),
+        getTotalFailureModeCount(currentProject.id)
       ]);
       setSafetyFunctions(sfData);
       setComponents(compData);
+      setFailureModeCount(fmCount);
     } catch (error) {
       console.error("Failed to load data:", error);
       setError("Failed to load project data.");
@@ -172,11 +178,9 @@ export default function FMEDAAnalysis({ currentProject }) {
             <div className={styles.cardIcon}>🔍</div>
             <div className={styles.cardContent}>
               <h4>Failure Modes</h4>
-              <p className={styles.cardValue}>
-                {components.reduce((total, comp) => total + (comp.failure_modes?.length || 0), 0)}
-              </p>
+              <p className={styles.cardValue}>{failureModeCount}</p>
               <p className={styles.cardStatus}>
-                {components.some(comp => comp.failure_modes?.length > 0) ? "✅ Ready" : "⚠️ Recommended"}
+                {failureModeCount > 0 ? "✅ Ready" : "⚠️ Recommended"}
               </p>
             </div>
           </div>
@@ -189,20 +193,14 @@ export default function FMEDAAnalysis({ currentProject }) {
           <h3>Missing Data</h3>
           <p>Please ensure you have defined Safety Functions and Components before running FMEDA analysis.</p>
           <div className={styles.warningActions}>
-            <button 
-              className={styles.warningBtn}
-              onClick={() => navigate("/safety-functions")}
-            >
+            <RippleButton className={styles.warningBtn} onClick={() => navigate("/safety-functions")}>
               <span className={styles.btnIcon}>⚡</span>
               <span>Add Safety Functions</span>
-            </button>
-            <button 
-              className={styles.warningBtn}
-              onClick={() => navigate("/components")}
-            >
+            </RippleButton>
+            <RippleButton className={styles.warningBtn} onClick={() => navigate("/components")}>
               <span className={styles.btnIcon}>🔧</span>
               <span>Add Components</span>
-            </button>
+            </RippleButton>
           </div>
         </div>
       )}
@@ -212,13 +210,10 @@ export default function FMEDAAnalysis({ currentProject }) {
           <div className={styles.warningIcon}>⚠️</div>
           <h3>System Lifetime Not Set</h3>
           <p>Please set the system lifetime in the Assumptions page before running FMEDA analysis.</p>
-          <button 
-            className={styles.warningBtn}
-            onClick={() => navigate("/assumptions")}
-          >
+          <RippleButton className={styles.warningBtn} onClick={() => navigate("/assumptions")}>
             <span className={styles.btnIcon}>📋</span>
             <span>Set System Lifetime</span>
-          </button>
+          </RippleButton>
         </div>
       )}
 
@@ -244,7 +239,7 @@ export default function FMEDAAnalysis({ currentProject }) {
           </div>
 
           <div className={styles.analysisActions}>
-            <button 
+            <RippleButton
               className={styles.calculateBtn}
               onClick={handleCalculateFMEDA}
               disabled={isCalculating}
@@ -255,15 +250,11 @@ export default function FMEDAAnalysis({ currentProject }) {
               <span>
                 {isCalculating ? "Calculating..." : "Run FMEDA Analysis"}
               </span>
-            </button>
-
-            <button 
-              className={styles.backBtn}
-              onClick={handleBackToFailureModes}
-            >
+            </RippleButton>
+            <RippleButton className={styles.backBtn} onClick={handleBackToFailureModes}>
               <span className={styles.btnIcon}>←</span>
               <span>Back to Failure Modes</span>
-            </button>
+            </RippleButton>
           </div>
         </div>
       )}
@@ -290,9 +281,7 @@ export default function FMEDAAnalysis({ currentProject }) {
                 </div>
                 <div className={styles.metric}>
                   <span className={styles.metricLabel}>Total Failure Modes:</span>
-                  <span className={styles.metricValue}>
-                    {components.reduce((total, comp) => total + (comp.failure_modes?.length || 0), 0)}
-                  </span>
+                  <span className={styles.metricValue}>{failureModeCount}</span>
                 </div>
               </div>
             </div>
